@@ -39,7 +39,7 @@
       "rule": "R2",
       "verdict": "red",
       "title": "On NAFDAC Public Alert 042/2026",
-      "message": "NAFDAC warned about this batch on 19 Aug 2026 (Kano): Public Alert No. 042/2026: seizure of suspected substandard and falsified BPPL Artemether/Lumefantrine 80mg/480mg.",
+      "message": "NAFDAC warned about this batch on 19 Aug 2026 (Coordinated Wholesale Centre (CWC), Kano State): Public Alert No. 042/2026: seizure of suspected substandard and falsified BPPL Artemether/Lumefantrine 80mg/480mg.",
       "evidence": [
         {
           "field": "batchNo",
@@ -91,7 +91,7 @@
     "Registration number 02-3457 against 1 products in the NAFDAC Greenbook (snapshot 24 Oct 2026)",
     "Batch BP5203 against 1 human-checked alerts (last NAFDAC alert 19 Aug 2026)",
     "Registration number against the same alerts",
-    "Printed expiry date 2027-06"
+    "Printed expiry date 09/2027"
   ],
   "notChecked": [],
   "notes": [

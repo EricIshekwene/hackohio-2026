@@ -12,13 +12,18 @@ const DELAY_MS = 1500;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Greenbook pads some values with "##" separators ("Artheget EZ##"); keep the first non-empty part.
+function clean(v: string): string {
+  return v.replace(/<[^>]+>/g, '').split('##').map((p) => p.trim()).find(Boolean) ?? '';
+}
+
 // Rows may be flat ({ applicant_name }) or nested ({ applicant: { name } }); accept either.
 function pick(row: Record<string, any>, ...keys: string[]): string {
   for (const k of keys) {
     const parts = k.split('.');
     let v: any = row;
     for (const p of parts) v = v?.[p];
-    if (v != null && v !== '') return String(v).replace(/<[^>]+>/g, '').trim();
+    if (v != null && v !== '') return clean(String(v));
   }
   return '';
 }
@@ -72,6 +77,13 @@ async function main() {
   );
   const a4 = products.filter((p) => p.regNo.replace(/\s/g, '').toUpperCase() === 'A4-6238');
   console.log(`wrote ${products.length} products (snapshot ${snapshotDate}). A4-6238 ->`, a4);
+  // GitHub annotations, so the raw shape is visible without downloading logs.
+  if (process.env.GITHUB_ACTIONS) {
+    const rawA4 = rows.find((r) => JSON.stringify(r).includes('A4-6238'));
+    console.log(`::notice title=Greenbook raw A4-6238 row::${JSON.stringify(rawA4 ?? null).slice(0, 3500)}`);
+    console.log(`::notice title=Mapped A4-6238::${JSON.stringify(a4).slice(0, 3500)}`);
+    console.log(`::notice title=Snapshot::${products.length} products of ${total}; keys: ${Object.keys(rows[0] ?? {}).join(', ')}`);
+  }
   if (!a4.length) console.warn('WARNING: A4-6238 missing. Check the field mapping in toRecord() against data/raw/greenbook-0.json.');
 }
 

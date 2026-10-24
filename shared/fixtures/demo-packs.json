@@ -1,39 +1,93 @@
 {
-  "note": "The three frozen demo packs (Drive: 00-MUSE-AND-CLAUDE §8), as confirmed StandardizedMedicationInput.",
+  "note": "The three frozen demo packs (Drive: 00-MUSE-AND-CLAUDE \u00a78), as confirmed StandardizedMedicationInput. Alert 042 pack matches the NAFDAC alert page (EXP 09/2027, MFD 10/2024). Expiry on the other two packs is a placeholder.",
   "hero-cloned": {
     "source": "manual",
     "confirmedByUser": true,
     "fields": {
-      "productName": { "value": "Lonart Forte", "editedByUser": false },
-      "strength": { "value": "80/480 mg", "editedByUser": false },
-      "nafdacRegNo": { "value": "A4-6238", "editedByUser": false },
-      "manufacturer": { "value": "Greenlife Pharmaceuticals Ltd", "editedByUser": false },
-      "batchNo": { "value": "GL2210", "editedByUser": false },
-      "expiryDate": { "value": "2027-09", "editedByUser": false }
+      "productName": {
+        "value": "Lonart Forte",
+        "editedByUser": false
+      },
+      "strength": {
+        "value": "80/480 mg",
+        "editedByUser": false
+      },
+      "nafdacRegNo": {
+        "value": "A4-6238",
+        "editedByUser": false
+      },
+      "manufacturer": {
+        "value": "Greenlife Pharmaceuticals Ltd",
+        "editedByUser": false
+      },
+      "batchNo": {
+        "value": "GL2210",
+        "editedByUser": false
+      },
+      "expiryDate": {
+        "value": "2027-09",
+        "editedByUser": false
+      }
     }
   },
   "alert-042": {
     "source": "manual",
     "confirmedByUser": true,
     "fields": {
-      "productName": { "value": "Artemether/Lumefantrine", "editedByUser": false },
-      "strength": { "value": "80/480 mg", "editedByUser": false },
-      "nafdacRegNo": { "value": "02-3457", "editedByUser": false },
-      "manufacturer": { "value": "BPPL", "editedByUser": false },
-      "batchNo": { "value": "BP5203", "editedByUser": false },
-      "expiryDate": { "value": "2027-06", "editedByUser": false }
+      "productName": {
+        "value": "Artemether/Lumefantrine 80mg/480mg",
+        "editedByUser": false
+      },
+      "strength": {
+        "value": "80mg/480mg",
+        "editedByUser": false
+      },
+      "nafdacRegNo": {
+        "value": "02-3457",
+        "editedByUser": false
+      },
+      "manufacturer": {
+        "value": "Bandaram Pharma Packleh Ltd (BPPL)",
+        "editedByUser": false
+      },
+      "batchNo": {
+        "value": "BP5203",
+        "editedByUser": false
+      },
+      "expiryDate": {
+        "value": "09/2027",
+        "editedByUser": false
+      }
     }
   },
   "real-green": {
     "source": "manual",
     "confirmedByUser": true,
     "fields": {
-      "productName": { "value": "Artheget EZ", "editedByUser": false },
-      "strength": { "value": "80 mg; 480 mg", "editedByUser": false },
-      "nafdacRegNo": { "value": "A4-6238", "editedByUser": false },
-      "manufacturer": { "value": "Getz Pharma Nigeria Limited", "editedByUser": false },
-      "batchNo": { "value": "AG1042", "editedByUser": false },
-      "expiryDate": { "value": "2028-03", "editedByUser": false }
+      "productName": {
+        "value": "Artheget EZ",
+        "editedByUser": false
+      },
+      "strength": {
+        "value": "80 mg; 480 mg",
+        "editedByUser": false
+      },
+      "nafdacRegNo": {
+        "value": "A4-6238",
+        "editedByUser": false
+      },
+      "manufacturer": {
+        "value": "Getz Pharma Nigeria Limited",
+        "editedByUser": false
+      },
+      "batchNo": {
+        "value": "AG1042",
+        "editedByUser": false
+      },
+      "expiryDate": {
+        "value": "2028-03",
+        "editedByUser": false
+      }
     }
   }
 }

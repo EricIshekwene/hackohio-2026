@@ -59,9 +59,9 @@ function holderRow(input: StandardizedMedicationInput, rec: RegistryRecord): Com
   const made = val(input, 'manufacturer');
   const marketed = val(input, 'marketedBy');
   const onPack = [made, marketed && `marketed by ${marketed}`].filter(Boolean).join(', ') || null;
-  const m1 = manufacturerMatches(made, rec.applicant);
-  const m2 = manufacturerMatches(marketed, rec.applicant);
-  const match = m1 === true || m2 === true ? true : m1 === false || m2 === false ? false : null;
+  // When the pack names a holder, that is what NAFDAC registered: judge it alone, so a real
+  // factory name can't vouch for a fake "marketed by" company.
+  const match = marketed ? manufacturerMatches(marketed, rec.applicant) : manufacturerMatches(made, rec.applicant);
   return row('manufacturer', onPack, rec.applicant, match);
 }
 

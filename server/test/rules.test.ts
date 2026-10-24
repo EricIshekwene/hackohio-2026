@@ -138,6 +138,23 @@ describe('licence holder vs factory (R3) and real inactive registrations (R4)', 
     expect(r.reasons[0]).toMatchObject({ rule: 'R3', verdict: 'amber' });
   });
 
+  it('a real factory name does not rescue a fake "marketed by" holder (RED)', () => {
+    const p = pack('real-green');
+    p.fields.manufacturer.value = 'Getz Pharma (Pvt) Ltd, Karachi';
+    p.fields.marketedBy = { value: 'Sunrise Meds Distributors Ltd', editedByUser: false };
+    const r = check(p);
+    expect(r.verdict).toBe('red');
+    expect(r.reasons[0]).toMatchObject({ rule: 'R3', verdict: 'red' });
+  });
+
+  full('V11: Novartis factory with a fake "marketed by" on B4-0262 is RED', () => {
+    const p = coartem();
+    p.fields.marketedBy!.value = 'Kingsway Pharma Ventures Ltd';
+    const r = check(p);
+    expect(r.verdict).toBe('red');
+    expect(r.reasons.map((f) => f.rule)).toEqual(['R3', 'R4']);
+  });
+
   it('a "marketed by" holder that also differs is RED', () => {
     const p = pack('real-green');
     p.fields.manufacturer.value = 'Acme Contract Manufacturing, Karachi';

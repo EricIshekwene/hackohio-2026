@@ -1,0 +1,51 @@
+name: Snapshot NAFDAC Greenbook registry
+
+# One-time (polite) registry snapshot -> data/registry.json, committed back to main.
+# Runs when this file or the snapshot script changes, or by hand from the Actions tab.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/snapshot-registry.yml
+      - server/scripts/snapshot-greenbook.ts
+
+permissions:
+  contents: write
+
+concurrency:
+  group: snapshot-registry
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+        working-directory: server
+      - run: npm run snapshot:registry
+        working-directory: server
+      - run: npm test && npm run fixtures
+        working-directory: server
+      - name: Upload raw pages (for fixing the field mapping if needed)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: greenbook-raw
+          path: data/raw/
+          if-no-files-found: ignore
+      - name: Commit snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898499+github-actions[bot]@users.noreply.github.com"
+          git add data/registry.json shared/fixtures/
+          if git diff --cached --quiet; then echo "no changes"; exit 0; fi
+          N=$(node -e 'console.log(require("./data/registry.json").total)')
+          git commit -m "Add Greenbook registry snapshot ($N products, $(date -u +%F))"
+          git pull --rebase origin main
+          git push origin HEAD:main

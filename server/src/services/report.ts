@@ -20,6 +20,7 @@ export function buildReport(req: ReportRequest): ReportDraft {
     `- Strength: ${v('strength')}`,
     `- NAFDAC Reg. No.: ${v('nafdacRegNo')}`,
     `- Manufacturer: ${v('manufacturer')}`,
+    ...(f.marketedBy?.value ? [`- Marketed by: ${f.marketedBy.value}`] : []),
     `- Batch no.: ${v('batchNo')}`,
     `- Expiry date: ${v('expiryDate')}`,
     '',

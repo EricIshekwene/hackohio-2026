@@ -17,7 +17,7 @@
       "rule": "R3",
       "verdict": "red",
       "title": "Registration number belongs to a different product",
-      "message": "A4-6238 is registered to Artheget EZ by Getz Pharma Nigeria Limited, but this pack shows product name \"Lonart Forte\" and manufacturer \"Greenlife Pharmaceuticals Ltd\". A real number on the wrong product is a common sign of a falsified medicine.",
+      "message": "A4-6238 is registered to Artheget EZ by Getz Pharma Nigeria Limited, but this pack shows product name \"Lonart Forte\" and manufacturer / licence holder \"Greenlife Pharmaceuticals Ltd\". A real number on the wrong product is a common sign of a falsified medicine.",
       "evidence": [
         {
           "field": "nafdacRegNo",
@@ -35,7 +35,7 @@
         },
         {
           "field": "manufacturer",
-          "label": "Manufacturer",
+          "label": "Manufacturer / licence holder",
           "onPack": "Greenlife Pharmaceuticals Ltd",
           "inRegistry": "Getz Pharma Nigeria Limited",
           "match": false
@@ -74,7 +74,7 @@
     },
     {
       "field": "manufacturer",
-      "label": "Manufacturer",
+      "label": "Manufacturer / licence holder",
       "onPack": "Greenlife Pharmaceuticals Ltd",
       "inRegistry": "Getz Pharma Nigeria Limited",
       "match": false
@@ -97,7 +97,7 @@
     "Registration number A4-6238 against 8,943 products in the NAFDAC Greenbook (snapshot 24 Oct 2026)",
     "Batch GL2210 against 1 human-checked alerts (last NAFDAC alert 19 Aug 2026)",
     "Registration number against the same alerts",
-    "product name, strength, manufacturer against NAFDAC's record for A4-6238",
+    "product name, strength, manufacturer / licence holder against NAFDAC's record for A4-6238",
     "Registration status and registration expiry",
     "Printed expiry date 2027-09"
   ],

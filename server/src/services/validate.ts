@@ -1,7 +1,7 @@
 import type { StandardizedMedicationInput } from '../../../shared/types';
 
 const REQUIRED = ['productName', 'strength', 'nafdacRegNo', 'manufacturer', 'batchNo', 'expiryDate'] as const;
-const OPTIONAL = ['activeIngredient', 'dosageForm'] as const;
+const OPTIONAL = ['activeIngredient', 'dosageForm', 'marketedBy'] as const;
 
 export type ValidationResult =
   | { ok: true; input: StandardizedMedicationInput }

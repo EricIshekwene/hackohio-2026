@@ -28,7 +28,8 @@ Types live in `shared/types.ts`, the legend in `shared/legend.ts`.
 |---|---|---|
 | R1 | Reg no. not in the registry | RED |
 | R2 | Batch or reg no. on a human-checked alert | RED (AMBER if only product + manufacturer match and the pack has no batch) |
-| R3 | Reg no. exists, but product name, manufacturer or active ingredient differs | RED |
+| R3 | Reg no. exists, but product name or active ingredient differs (or the licence holder differs too) | RED |
+| R3 | Only the manufacturer differs and the pack names no "marketed by" holder (NAFDAC lists the Nigerian holder, not the factory) | AMBER |
 | R3 | Reg no. exists, only strength or dosage form differs | AMBER |
 | R4 | Registration status not Active, or registration expired | AMBER |
 | R6 | Pack's printed expiry has passed | AMBER |

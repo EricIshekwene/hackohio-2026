@@ -23,6 +23,9 @@ export interface StandardizedMedicationInput {
     // Optional extras. Sent when the pack shows them; they make R3 sharper.
     activeIngredient?: ExtractedField;
     dosageForm?: ExtractedField;
+    // "Marketed by" / "Imported by" / licence holder. NAFDAC registers the Nigerian holder,
+    // not the foreign factory, so this is what the registry's applicant usually matches.
+    marketedBy?: ExtractedField;
   };
   confirmedByUser: boolean; // backend refuses to check unconfirmed input
 }

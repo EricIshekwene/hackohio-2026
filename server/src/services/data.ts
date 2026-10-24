@@ -51,7 +51,11 @@ export function loadDataset(dir = DATA_DIR): Dataset {
   const snapshotFile = path.join(dir, 'registry.json');
   const isSeed = !existsSync(snapshotFile);
   const reg = readJson(isSeed ? path.join(dir, 'seed-registry.json') : snapshotFile);
-  const products: RegistryRecord[] = reg.products;
+  // Greenbook pads names with "##" and marks some with "**"; strip both for display and matching.
+  const products: RegistryRecord[] = (reg.products as RegistryRecord[]).map((p) => ({
+    ...p,
+    productName: p.productName.replace(/[#*]+\s*$/, '').trim(),
+  }));
 
   const byRegNo = new Map<string, RegistryRecord[]>();
   for (const p of products) push(byRegNo, regNoKey(p.regNo), p);

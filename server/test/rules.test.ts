@@ -101,6 +101,51 @@ describe('other rules', () => {
   });
 });
 
+describe('licence holder vs factory (R3) and real inactive registrations (R4)', () => {
+  const coartem = (): StandardizedMedicationInput => ({
+    source: 'manual',
+    confirmedByUser: true,
+    fields: {
+      productName: { value: 'Coartem 80/480', editedByUser: false },
+      strength: { value: '80mg/480mg', editedByUser: false },
+      nafdacRegNo: { value: 'B4-0262', editedByUser: false },
+      manufacturer: { value: 'Novartis Pharma AG, Basel, Switzerland', editedByUser: false },
+      marketedBy: { value: 'Novartis Nigeria Limited', editedByUser: false },
+      batchNo: { value: 'KN1234', editedByUser: false },
+      expiryDate: { value: '2027-01', editedByUser: false },
+    },
+  });
+  const full = ds.registry.isSeed ? it.skip : it;
+
+  full('B4-0262 (Coartem, Inactive, expired 2026-03-28) is AMBER via R4, not R3', () => {
+    const r = check(coartem());
+    expect(r.verdict).toBe('amber');
+    expect(r.reasons.map((f) => f.rule)).toEqual(['R4']);
+    expect(r.registryRecord?.productName).toBe('Coartem 80/480 Tablets');
+  });
+
+  full('foreign factory with a matching "marketed by" holder is not flagged', () => {
+    const p = coartem();
+    p.fields.manufacturer.value = 'Some Contract Factory Pvt, India';
+    expect(check(p).reasons.map((f) => f.rule)).toEqual(['R4']);
+  });
+
+  it('foreign factory with no "marketed by" on the pack is AMBER, not RED', () => {
+    const p = pack('real-green');
+    p.fields.manufacturer.value = 'Acme Contract Manufacturing, Karachi';
+    const r = check(p);
+    expect(r.verdict).toBe('amber');
+    expect(r.reasons[0]).toMatchObject({ rule: 'R3', verdict: 'amber' });
+  });
+
+  it('a "marketed by" holder that also differs is RED', () => {
+    const p = pack('real-green');
+    p.fields.manufacturer.value = 'Acme Contract Manufacturing, Karachi';
+    p.fields.marketedBy = { value: 'Greenlife Pharmaceuticals Ltd', editedByUser: false };
+    expect(check(p).reasons[0]).toMatchObject({ rule: 'R3', verdict: 'red' });
+  });
+});
+
 describe('normalisation', () => {
   it.each([
     ['A4-6238', 'A4-6238'], ['a4 6238', 'A4-6238'], ['A46238', 'A4-6238'], ['A4–6238', 'A4-6238'],

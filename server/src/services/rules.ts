@@ -17,13 +17,16 @@ const LABELS: Record<FieldKey, string> = {
   strength: 'Strength',
   dosageForm: 'Dosage form',
   nafdacRegNo: 'NAFDAC reg. no.',
-  manufacturer: 'Manufacturer',
+  manufacturer: 'Manufacturer / licence holder',
+  marketedBy: 'Marketed by',
   batchNo: 'Batch no.',
   expiryDate: 'Expiry date',
 };
 
 // R3: which mismatches mean a cloned number (RED) and which only need a closer look (AMBER).
-const R3_RED_FIELDS: FieldKey[] = ['productName', 'manufacturer', 'activeIngredient'];
+// The manufacturer row is RED only when the pack also names a "marketed by" holder that doesn't match,
+// or the product name is wrong too: NAFDAC lists the Nigerian holder, and genuine imports name a foreign factory.
+const R3_RED_FIELDS: FieldKey[] = ['productName', 'activeIngredient'];
 const R3_AMBER_FIELDS: FieldKey[] = ['strength', 'dosageForm'];
 
 const REG_EXPIRY_WARN_DAYS = 60;
@@ -51,6 +54,17 @@ function bestRecord(records: RegistryRecord[], input: StandardizedMedicationInpu
   return [...records].sort((a, b) => score(b) - score(a))[0];
 }
 
+// Pack says "Made by X (abroad), marketed by Y (Nigeria)"; the registry lists Y. Either may match.
+function holderRow(input: StandardizedMedicationInput, rec: RegistryRecord): ComparisonRow {
+  const made = val(input, 'manufacturer');
+  const marketed = val(input, 'marketedBy');
+  const onPack = [made, marketed && `marketed by ${marketed}`].filter(Boolean).join(', ') || null;
+  const m1 = manufacturerMatches(made, rec.applicant);
+  const m2 = manufacturerMatches(marketed, rec.applicant);
+  const match = m1 === true || m2 === true ? true : m1 === false || m2 === false ? false : null;
+  return row('manufacturer', onPack, rec.applicant, match);
+}
+
 function compare(input: StandardizedMedicationInput, rec: RegistryRecord | null): ComparisonRow[] {
   const regOnPack = normalizeRegNo(val(input, 'nafdacRegNo'));
   const rows: ComparisonRow[] = [
@@ -62,7 +76,6 @@ function compare(input: StandardizedMedicationInput, rec: RegistryRecord | null)
     ['activeIngredient', rec.ingredient ?? rec.composition, ingredientMatches],
     ['strength', rec.strength, strengthMatches],
     ['dosageForm', rec.form, formMatches],
-    ['manufacturer', rec.applicant, manufacturerMatches],
   ];
   for (const [key, regValue, fn] of pairs) {
     const onPack = val(input, key);
@@ -70,6 +83,7 @@ function compare(input: StandardizedMedicationInput, rec: RegistryRecord | null)
     if (!onPack && (key === 'activeIngredient' || key === 'dosageForm')) continue;
     rows.push(row(key, onPack, regValue ?? null, fn(onPack, regValue ?? null)));
   }
+  rows.push(holderRow(input, rec));
   return rows;
 }
 
@@ -189,8 +203,11 @@ export function checkMedication(
   if (rec) {
     // ---- R3: number exists but the details belong to another product
     const mismatches = comparison.filter((r) => r.match === false && r.field !== 'nafdacRegNo');
-    const redRows = mismatches.filter((r) => R3_RED_FIELDS.includes(r.field));
-    const amberRows = mismatches.filter((r) => R3_AMBER_FIELDS.includes(r.field));
+    const holderBad = mismatches.find((r) => r.field === 'manufacturer');
+    const nameBad = mismatches.some((r) => R3_RED_FIELDS.includes(r.field));
+    const holderIsRed = !!holderBad && (nameBad || !!val(input, 'marketedBy'));
+    const redRows = mismatches.filter((r) => R3_RED_FIELDS.includes(r.field) || (r.field === 'manufacturer' && holderIsRed));
+    const amberRows = mismatches.filter((r) => R3_AMBER_FIELDS.includes(r.field) || (r.field === 'manufacturer' && !holderIsRed));
     if (redRows.length) {
       findings.push({
         rule: 'R3',
@@ -206,10 +223,12 @@ export function checkMedication(
         rule: 'R3',
         verdict: 'amber',
         title: `${amberRows.map((r) => r.label).join(' and ')} differ${amberRows.length === 1 ? 's' : ''} from the registered product`,
-        message: `${regNo} is registered as ${rec.productName} ${rec.strength}${rec.form ? ` (${rec.form})` : ''}, but this pack shows ${amberRows.map((r) => `${r.label.toLowerCase()} "${r.onPack}"`).join(' and ')}.`,
+        message: `${regNo} is registered as ${rec.productName} ${rec.strength}${rec.form ? ` (${rec.form})` : ''} held by ${rec.applicant}, but this pack shows ${amberRows.map((r) => `${r.label.toLowerCase()} "${r.onPack}"`).join(' and ')}.${amberRows.some((r) => r.field === 'manufacturer') ? ` NAFDAC lists the Nigerian licence holder, not the factory, so look for "Marketed by" or "Imported by" ${rec.applicant} on the pack.` : ''}`,
         evidence: [row('nafdacRegNo', regNo, rec.regNo, true), ...amberRows],
         source: greenbookSource(ds, rec.regNo),
-        nextStep: 'Ask a pharmacist to compare the pack with what was prescribed before using it.',
+        nextStep: amberRows.some((r) => r.field === 'manufacturer')
+          ? `Look for "Marketed by" or "Imported by" on the pack and add it, or ask a pharmacist.`
+          : 'Ask a pharmacist to compare the pack with what was prescribed before using it.',
       });
     }
     checked.push(`${comparison.filter((r) => r.match !== null && r.field !== 'nafdacRegNo').map((r) => r.label.toLowerCase()).join(', ')} against NAFDAC's record for ${rec.regNo}`);

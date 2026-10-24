@@ -88,15 +88,13 @@
     }
   ],
   "checked": [
-    "Registration number 02-3457 against 1 products in the NAFDAC Greenbook (snapshot 24 Oct 2026)",
+    "Registration number 02-3457 against 8,943 products in the NAFDAC Greenbook (snapshot 24 Oct 2026)",
     "Batch BP5203 against 1 human-checked alerts (last NAFDAC alert 19 Aug 2026)",
     "Registration number against the same alerts",
     "Printed expiry date 09/2027"
   ],
   "notChecked": [],
-  "notes": [
-    "Running on the seed registry (1 product). Load data/registry.json for the full Greenbook snapshot."
-  ],
+  "notes": [],
   "dataAsOf": {
     "registrySnapshot": "2026-10-24",
     "lastAlert": "2026-08-19"

@@ -1,0 +1,163 @@
+import { describe, expect, it } from 'vitest';
+import request from 'supertest';
+import packs from '../../shared/fixtures/demo-packs.json';
+import type { StandardizedMedicationInput } from '../../shared/types';
+import { createApp } from '../src/app';
+import { loadDataset } from '../src/services/data';
+import { normalizeRegNo, strengthNumbers } from '../src/services/normalize';
+import { parsePackDate } from '../src/services/dates';
+import { checkMedication } from '../src/services/rules';
+
+const ds = loadDataset();
+const NOW = new Date('2026-10-25T12:00:00Z'); // demo day
+const pack = (k: keyof typeof packs) => structuredClone(packs[k]) as StandardizedMedicationInput;
+const check = (input: StandardizedMedicationInput) => checkMedication(input, ds, NOW);
+
+describe('demo packs', () => {
+  it('(a) hero: real number on the wrong product is RED via R3 with name + manufacturer rows', () => {
+    const r = check(pack('hero-cloned'));
+    expect(r.verdict).toBe('red');
+    expect(r.reasons[0].rule).toBe('R3');
+    const bad = r.comparison.filter((c) => c.match === false).map((c) => c.field);
+    expect(bad).toEqual(['productName', 'manufacturer']);
+    expect(r.comparison.find((c) => c.field === 'strength')?.match).toBe(true);
+    expect(r.registryRecord?.productName).toBe('Artheget EZ');
+  });
+
+  it('(b) Alert 042 pack is RED with R1 and R2 both listed, alert cited', () => {
+    const r = check(pack('alert-042'));
+    expect(r.verdict).toBe('red');
+    expect(r.reasons.map((f) => f.rule).sort()).toEqual(['R1', 'R2']);
+    expect(r.alertMatches[0]).toMatchObject({ alertNo: '042/2026', date: '2026-08-19' });
+    expect(r.alertMatches[0].matchedOn).toEqual(expect.arrayContaining(['batchNo', 'nafdacRegNo']));
+  });
+
+  it('(c) real pack is GREEN with the exact caveat and a registration-expiry note', () => {
+    const r = check(pack('real-green'));
+    expect(r.verdict).toBe('green');
+    expect(r.reasons.map((f) => f.rule)).toEqual(['R5']);
+    expect(r.summary).toBe('Registered, no active alert, details consistent. Not proof of authenticity.');
+    expect(r.caveat).toBe('Not proof of authenticity');
+    expect(r.notes.some((n) => n.includes('expires on 1 Dec 2026'))).toBe(true);
+    expect(r.dataAsOf.lastAlert).toBe('2026-08-19');
+  });
+});
+
+describe('other rules', () => {
+  it('strength-only mismatch is AMBER (R3)', () => {
+    const p = pack('real-green');
+    p.fields.strength.value = '20/120 mg';
+    const r = check(p);
+    expect(r.verdict).toBe('amber');
+    expect(r.reasons[0]).toMatchObject({ rule: 'R3', verdict: 'amber' });
+  });
+
+  it('missing reg no. is UNSURE (U1)', () => {
+    const p = pack('real-green');
+    p.fields.nafdacRegNo.value = null;
+    const r = check(p);
+    expect(r.verdict).toBe('unsure');
+    expect(r.reasons[0].rule).toBe('U1');
+  });
+
+  it('missing reg no. but batch on an alert is still RED (worst wins)', () => {
+    const p = pack('alert-042');
+    p.fields.nafdacRegNo.value = '';
+    const r = check(p);
+    expect(r.verdict).toBe('red');
+    expect(r.reasons.map((f) => f.rule)).toEqual(['R2', 'U1']);
+  });
+
+  it('expired pack is AMBER (R6)', () => {
+    const p = pack('real-green');
+    p.fields.expiryDate.value = '03/2026';
+    const r = check(p);
+    expect(r.verdict).toBe('amber');
+    expect(r.reasons[0].rule).toBe('R6');
+  });
+
+  it('expired registration is AMBER (R4)', () => {
+    const r = checkMedication(pack('real-green'), ds, new Date('2027-01-15T00:00:00Z'));
+    expect(r.reasons.map((f) => f.rule)).toContain('R4');
+    expect(r.verdict).toBe('amber');
+  });
+
+  it('missing batch adds a not-checked line without changing the colour', () => {
+    const p = pack('real-green');
+    p.fields.batchNo.value = null;
+    const r = check(p);
+    expect(r.verdict).toBe('green');
+    expect(r.notChecked).toContain('Batch number (not on the pack)');
+  });
+
+  it('every non-green finding carries evidence, a source and a next step', () => {
+    for (const k of ['hero-cloned', 'alert-042'] as const) {
+      for (const f of check(pack(k)).reasons) {
+        expect(f.evidence.length).toBeGreaterThan(0);
+        expect(f.source.name).toBeTruthy();
+        expect(f.nextStep).toBeTruthy();
+      }
+    }
+  });
+});
+
+describe('normalisation', () => {
+  it.each([
+    ['A4-6238', 'A4-6238'], ['a4 6238', 'A4-6238'], ['A46238', 'A4-6238'], ['A4–6238', 'A4-6238'],
+    ['A4-62O8', 'A4-6208'], ['O2-3457', '02-3457'], ['NAFDAC Reg. No: 02-3457', '02-3457'],
+  ])('%s -> %s', (raw, want) => expect(normalizeRegNo(raw)).toBe(want));
+
+  it('reads strengths', () => {
+    expect(strengthNumbers('80 mg; 480 mg')).toEqual([80, 480]);
+    expect(strengthNumbers('80/480mg')).toEqual([80, 480]);
+    expect(strengthNumbers('0.5 g')).toEqual([500]);
+  });
+
+  it('reads pack dates', () => {
+    expect(parsePackDate('2027-09')?.toISOString().slice(0, 10)).toBe('2027-09-30');
+    expect(parsePackDate('MAR 2027')?.toISOString().slice(0, 10)).toBe('2027-03-31');
+    expect(parsePackDate('31/03/2027')?.toISOString().slice(0, 10)).toBe('2027-03-31');
+    expect(parsePackDate('EXP: 03/27')?.toISOString().slice(0, 10)).toBe('2027-03-31');
+    expect(parsePackDate('soon')).toBeNull();
+  });
+});
+
+describe('HTTP', () => {
+  const app = createApp({ dataset: ds, now: () => NOW });
+
+  it('POST /api/check returns a VerificationResult', async () => {
+    const res = await request(app).post('/api/check').send(pack('hero-cloned'));
+    expect(res.status).toBe(200);
+    expect(res.body.verdict).toBe('red');
+    expect(res.body.legend.label).toBe('Do not use');
+  });
+
+  it('refuses unconfirmed input with 422', async () => {
+    const p = pack('real-green');
+    p.confirmedByUser = false;
+    const res = await request(app).post('/api/check').send(p);
+    expect(res.status).toBe(422);
+    expect(res.body.error).toBe('unconfirmed');
+  });
+
+  it('rejects malformed input with 400', async () => {
+    const res = await request(app).post('/api/check').send({ source: 'photo' });
+    expect(res.status).toBe(400);
+    expect(res.body.details.length).toBeGreaterThan(0);
+  });
+
+  it('GET /api/legend lists four tiers worst first', async () => {
+    const res = await request(app).get('/api/legend');
+    expect(res.body.legend.map((l: { verdict: string }) => l.verdict)).toEqual(['red', 'amber', 'unsure', 'green']);
+  });
+
+  it('POST /api/report builds a prefilled NAFDAC draft', async () => {
+    const input = pack('alert-042');
+    const result = (await request(app).post('/api/check').send(input)).body;
+    const res = await request(app).post('/api/report').send({ input, result, reporter: { location: 'Kano' } });
+    expect(res.status).toBe(200);
+    expect(res.body.to).toBe('pharmacovigilance@nafdac.gov.ng');
+    expect(res.body.body).toContain('042/2026');
+    expect(res.body.mailto.startsWith('mailto:pharmacovigilance@nafdac.gov.ng?subject=')).toBe(true);
+  });
+});

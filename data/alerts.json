@@ -1,0 +1,26 @@
+{
+  "note": "Every row here is human-checked. Add new rows only after a person has compared them with the alert page.",
+  "lastAlertDate": "2026-08-19",
+  "alerts": [
+    {
+      "id": "nafdac-042-2026",
+      "source": "NAFDAC",
+      "alertNo": "042/2026",
+      "title": "Public Alert No. 042/2026: seizure of suspected substandard and falsified BPPL Artemether/Lumefantrine 80mg/480mg",
+      "date": "2026-08-19",
+      "url": "https://nafdac.gov.ng/public-alert-no-042-2026-alert-on-the-seizure-of-suspected-substandard-and-falsified-bppl-artemether-lumefantrine-80mg-480mg/",
+      "location": "Kano",
+      "products": [
+        {
+          "productName": "Artemether/Lumefantrine",
+          "activeIngredient": "Artemether, Lumefantrine",
+          "strength": "80mg/480mg",
+          "manufacturer": "BPPL",
+          "batches": ["BP5203"],
+          "regNo": "02-3457"
+        }
+      ],
+      "humanChecked": true
+    }
+  ]
+}

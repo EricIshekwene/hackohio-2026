@@ -1,0 +1,39 @@
+{
+  "note": "The three frozen demo packs (Drive: 00-MUSE-AND-CLAUDE §8), as confirmed StandardizedMedicationInput.",
+  "hero-cloned": {
+    "source": "manual",
+    "confirmedByUser": true,
+    "fields": {
+      "productName": { "value": "Lonart Forte", "editedByUser": false },
+      "strength": { "value": "80/480 mg", "editedByUser": false },
+      "nafdacRegNo": { "value": "A4-6238", "editedByUser": false },
+      "manufacturer": { "value": "Greenlife Pharmaceuticals Ltd", "editedByUser": false },
+      "batchNo": { "value": "GL2210", "editedByUser": false },
+      "expiryDate": { "value": "2027-09", "editedByUser": false }
+    }
+  },
+  "alert-042": {
+    "source": "manual",
+    "confirmedByUser": true,
+    "fields": {
+      "productName": { "value": "Artemether/Lumefantrine", "editedByUser": false },
+      "strength": { "value": "80/480 mg", "editedByUser": false },
+      "nafdacRegNo": { "value": "02-3457", "editedByUser": false },
+      "manufacturer": { "value": "BPPL", "editedByUser": false },
+      "batchNo": { "value": "BP5203", "editedByUser": false },
+      "expiryDate": { "value": "2027-06", "editedByUser": false }
+    }
+  },
+  "real-green": {
+    "source": "manual",
+    "confirmedByUser": true,
+    "fields": {
+      "productName": { "value": "Artheget EZ", "editedByUser": false },
+      "strength": { "value": "80 mg; 480 mg", "editedByUser": false },
+      "nafdacRegNo": { "value": "A4-6238", "editedByUser": false },
+      "manufacturer": { "value": "Getz Pharma Nigeria Limited", "editedByUser": false },
+      "batchNo": { "value": "AG1042", "editedByUser": false },
+      "expiryDate": { "value": "2028-03", "editedByUser": false }
+    }
+  }
+}

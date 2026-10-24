@@ -1,0 +1,106 @@
+{
+  "verdict": "red",
+  "legend": {
+    "verdict": "red",
+    "label": "Do not use",
+    "headline": "Do not use this medicine",
+    "meaning": "Not registered, on a NAFDAC alert, or the number belongs to a different product.",
+    "nextStep": "Don't take or sell it. Keep the pack, show it to a pharmacist, and report it to NAFDAC (0800-162-3322).",
+    "color": "#D32F2F",
+    "background": "#FDECEA",
+    "text": "#8E1B1B"
+  },
+  "headline": "Do not use this medicine",
+  "summary": "Registration number not found",
+  "reasons": [
+    {
+      "rule": "R1",
+      "verdict": "red",
+      "title": "Registration number not found",
+      "message": "02-3457 is not in NAFDAC's registry. A medicine sold in Nigeria must carry a real NAFDAC number.",
+      "evidence": [
+        {
+          "field": "nafdacRegNo",
+          "label": "NAFDAC reg. no.",
+          "onPack": "02-3457",
+          "inRegistry": null,
+          "match": false
+        }
+      ],
+      "source": {
+        "name": "NAFDAC Greenbook (snapshot 24 Oct 2026)",
+        "ref": "02-3457",
+        "url": "https://greenbook.nafdac.gov.ng/",
+        "date": "2026-10-24"
+      },
+      "nextStep": "Check you entered the number exactly as printed. If it is right, don't use the medicine and report it to NAFDAC (0800-162-3322)."
+    },
+    {
+      "rule": "R2",
+      "verdict": "red",
+      "title": "On NAFDAC Public Alert 042/2026",
+      "message": "NAFDAC warned about this batch on 19 Aug 2026 (Kano): Public Alert No. 042/2026: seizure of suspected substandard and falsified BPPL Artemether/Lumefantrine 80mg/480mg.",
+      "evidence": [
+        {
+          "field": "batchNo",
+          "label": "Batch no.",
+          "onPack": "BP5203",
+          "inRegistry": "BP5203",
+          "match": true
+        },
+        {
+          "field": "nafdacRegNo",
+          "label": "NAFDAC reg. no.",
+          "onPack": "02-3457",
+          "inRegistry": "02-3457",
+          "match": true
+        }
+      ],
+      "source": {
+        "name": "NAFDAC Public Alert 042/2026",
+        "ref": "042/2026",
+        "url": "https://nafdac.gov.ng/public-alert-no-042-2026-alert-on-the-seizure-of-suspected-substandard-and-falsified-bppl-artemether-lumefantrine-80mg-480mg/",
+        "date": "2026-08-19"
+      },
+      "nextStep": "Don't use it. Keep the pack and report it to NAFDAC (0800-162-3322), quoting alert 042/2026."
+    }
+  ],
+  "comparison": [
+    {
+      "field": "nafdacRegNo",
+      "label": "NAFDAC reg. no.",
+      "onPack": "02-3457",
+      "inRegistry": null,
+      "match": false
+    }
+  ],
+  "registryRecord": null,
+  "alertMatches": [
+    {
+      "alertNo": "042/2026",
+      "title": "Public Alert No. 042/2026: seizure of suspected substandard and falsified BPPL Artemether/Lumefantrine 80mg/480mg",
+      "date": "2026-08-19",
+      "url": "https://nafdac.gov.ng/public-alert-no-042-2026-alert-on-the-seizure-of-suspected-substandard-and-falsified-bppl-artemether-lumefantrine-80mg-480mg/",
+      "matchedOn": [
+        "batchNo",
+        "nafdacRegNo"
+      ]
+    }
+  ],
+  "checked": [
+    "Registration number 02-3457 against 1 products in the NAFDAC Greenbook (snapshot 24 Oct 2026)",
+    "Batch BP5203 against 1 human-checked alerts (last NAFDAC alert 19 Aug 2026)",
+    "Registration number against the same alerts",
+    "Printed expiry date 2027-06"
+  ],
+  "notChecked": [],
+  "notes": [
+    "Running on the seed registry (1 product). Load data/registry.json for the full Greenbook snapshot."
+  ],
+  "dataAsOf": {
+    "registrySnapshot": "2026-10-24",
+    "lastAlert": "2026-08-19"
+  },
+  "caveat": "Not proof of authenticity",
+  "checkedAt": "2026-10-25T12:00:00.000Z"
+}

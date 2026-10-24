@@ -1,0 +1,21 @@
+{
+  "note": "Hand-entered seed so the rules engine and tests run before the Greenbook snapshot exists. Values verified live on Greenbook, Sat 2026-10-24 (see Drive: 00-MUSE-AND-CLAUDE §2). Replaced at runtime by data/registry.json when present.",
+  "source": "NAFDAC Greenbook",
+  "sourceUrl": "https://greenbook.nafdac.gov.ng/",
+  "snapshotDate": "2026-10-24",
+  "total": 1,
+  "products": [
+    {
+      "regNo": "A4-6238",
+      "productName": "Artheget EZ",
+      "strength": "80 mg; 480 mg",
+      "composition": "Artemether/Lumefantrine",
+      "ingredient": "Artemether, Lumefantrine",
+      "applicant": "Getz Pharma Nigeria Limited",
+      "form": "Tablet",
+      "approvalDate": "2021-12-02",
+      "expiryDate": "2026-12-01",
+      "status": "Active"
+    }
+  ]
+}

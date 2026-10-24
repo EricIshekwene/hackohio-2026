@@ -1,0 +1,115 @@
+{
+  "verdict": "red",
+  "legend": {
+    "verdict": "red",
+    "label": "Do not use",
+    "headline": "Do not use this medicine",
+    "meaning": "Not registered, on a NAFDAC alert, or the number belongs to a different product.",
+    "nextStep": "Don't take or sell it. Keep the pack, show it to a pharmacist, and report it to NAFDAC (0800-162-3322).",
+    "color": "#D32F2F",
+    "background": "#FDECEA",
+    "text": "#8E1B1B"
+  },
+  "headline": "Do not use this medicine",
+  "summary": "Registration number belongs to a different product",
+  "reasons": [
+    {
+      "rule": "R3",
+      "verdict": "red",
+      "title": "Registration number belongs to a different product",
+      "message": "A4-6238 is registered to Artheget EZ by Getz Pharma Nigeria Limited, but this pack shows product name \"Lonart Forte\" and manufacturer \"Greenlife Pharmaceuticals Ltd\". A real number on the wrong product is a common sign of a falsified medicine.",
+      "evidence": [
+        {
+          "field": "nafdacRegNo",
+          "label": "NAFDAC reg. no.",
+          "onPack": "A4-6238",
+          "inRegistry": "A4-6238",
+          "match": true
+        },
+        {
+          "field": "productName",
+          "label": "Product name",
+          "onPack": "Lonart Forte",
+          "inRegistry": "Artheget EZ",
+          "match": false
+        },
+        {
+          "field": "manufacturer",
+          "label": "Manufacturer",
+          "onPack": "Greenlife Pharmaceuticals Ltd",
+          "inRegistry": "Getz Pharma Nigeria Limited",
+          "match": false
+        }
+      ],
+      "source": {
+        "name": "NAFDAC Greenbook (snapshot 24 Oct 2026)",
+        "ref": "A4-6238",
+        "url": "https://greenbook.nafdac.gov.ng/",
+        "date": "2026-10-24"
+      },
+      "nextStep": "Don't use it. Show the pack to a pharmacist and report it to NAFDAC (0800-162-3322)."
+    }
+  ],
+  "comparison": [
+    {
+      "field": "nafdacRegNo",
+      "label": "NAFDAC reg. no.",
+      "onPack": "A4-6238",
+      "inRegistry": "A4-6238",
+      "match": true
+    },
+    {
+      "field": "productName",
+      "label": "Product name",
+      "onPack": "Lonart Forte",
+      "inRegistry": "Artheget EZ",
+      "match": false
+    },
+    {
+      "field": "strength",
+      "label": "Strength",
+      "onPack": "80/480 mg",
+      "inRegistry": "80 mg; 480 mg",
+      "match": true
+    },
+    {
+      "field": "manufacturer",
+      "label": "Manufacturer",
+      "onPack": "Greenlife Pharmaceuticals Ltd",
+      "inRegistry": "Getz Pharma Nigeria Limited",
+      "match": false
+    }
+  ],
+  "registryRecord": {
+    "regNo": "A4-6238",
+    "productName": "Artheget EZ",
+    "strength": "80 mg; 480 mg",
+    "composition": "Artemether/Lumefantrine",
+    "ingredient": "Artemether, Lumefantrine",
+    "applicant": "Getz Pharma Nigeria Limited",
+    "form": "Tablet",
+    "approvalDate": "2021-12-02",
+    "expiryDate": "2026-12-01",
+    "status": "Active"
+  },
+  "alertMatches": [],
+  "checked": [
+    "Registration number A4-6238 against 1 products in the NAFDAC Greenbook (snapshot 24 Oct 2026)",
+    "Batch GL2210 against 1 human-checked alerts (last NAFDAC alert 19 Aug 2026)",
+    "Registration number against the same alerts",
+    "product name, strength, manufacturer against NAFDAC's record for A4-6238",
+    "Registration status and registration expiry",
+    "Printed expiry date 2027-09"
+  ],
+  "notChecked": [],
+  "notes": [
+    "NAFDAC registration for A4-6238 expires on 1 Dec 2026 (in 36 days).",
+    "Running on the seed registry (1 product). Load data/registry.json for the full Greenbook snapshot."
+  ],
+  "dataAsOf": {
+    "registrySnapshot": "2026-10-24",
+    "lastAlert": "2026-08-19"
+  },
+  "caveat": "Not proof of authenticity",
+  "checkedAt": "2026-10-25T12:00:00.000Z"
+}

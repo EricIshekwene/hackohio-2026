@@ -309,12 +309,13 @@ describe('alert matching (review fixes)', () => {
     expect(r2.evidence.find((e) => e.field === 'nafdacRegNo')?.inRegistry).toBe('A4-6238');
   });
 
-  it('a batch string shared with an unrelated product (different name and company) is not an alert hit', () => {
+  it('a batch string shared with an unrelated product (different name and company) is AMBER, never RED and never silently GREEN', () => {
     const p = pack('real-green');
     p.fields.batchNo.value = 'BP5203'; // Alert 042's batch, on a different product
     const r = checkMedication(p, ds, NOW);
-    expect(r.verdict).toBe('green');
-    expect(r.alertMatches).toEqual([]);
+    // Not RED: batch strings collide across manufacturers. Not GREEN: a fake can copy a real brand onto a seized batch.
+    expect(r.verdict).toBe('amber');
+    expect(r.reasons.find((x) => x.rule === 'R2')?.title).toBe('Batch number appears on a NAFDAC alert for a different product');
   });
 
   it('a shared batch with only one detail differing is AMBER, not RED', () => {

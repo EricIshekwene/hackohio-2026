@@ -13,7 +13,7 @@ import {
   formMatches, ingredientMatches, manufacturerMatches, manufacturerNearMiss, productNameMatches,
   productNameNearMiss, strengthMatches,
 } from './match';
-import { normalizeBatch, normalizeRegNo, regNoKey, regNoWasCorrected } from './normalize';
+import { normalizeBatch, normalizeRegNo, normalizeText, regNoKey, regNoWasCorrected } from './normalize';
 
 const LABELS: Record<FieldKey, string> = {
   productName: 'Product name',
@@ -40,6 +40,16 @@ function val(input: StandardizedMedicationInput, key: FieldKey): string | null {
   return v && v.trim() ? v.trim() : null;
 }
 
+// Empty but the photo showed something there (torn, smudged, cut off): "unreadable", not "missing".
+function unreadable(input: StandardizedMedicationInput, key: FieldKey): boolean {
+  return !val(input, key) && !!input.fields[key]?.sourceText?.trim();
+}
+
+// Why a field has no value, for "not checked" lines.
+function absentWhy(input: StandardizedMedicationInput, key: FieldKey): string {
+  return unreadable(input, key) ? "couldn't be read from the photo" : 'not on the pack';
+}
+
 function worst(verdicts: Verdict[]): Verdict {
   for (const v of VERDICT_ORDER) if (verdicts.includes(v)) return v;
   return 'green';
@@ -49,13 +59,35 @@ function row(field: FieldKey, onPack: string | null, inRegistry: string | null, 
   return { field, label: LABELS[field], onPack, inRegistry, match };
 }
 
-// Pick the record that best fits the pack when several share a number.
-function bestRecord(records: RegistryRecord[], input: StandardizedMedicationInput): RegistryRecord {
-  const score = (r: RegistryRecord) =>
-    [productNameMatches(val(input, 'productName'), r.productName),
-      manufacturerMatches(val(input, 'manufacturer'), r.applicant),
-      strengthMatches(val(input, 'strength'), r.strength)].filter((m) => m === true).length;
-  return [...records].sort((a, b) => score(b) - score(a))[0];
+// Pick the record that best fits the pack when several share a number (Greenbook keeps renewals and
+// duplicates side by side). Name counts most (exact > clean match > near miss); every other field adds a
+// point when it matches and loses one when it contradicts. Ties go to an Active, unexpired registration,
+// so a genuine pack is never judged against the lapsed row of its own renewal.
+function bestRecord(records: RegistryRecord[], input: StandardizedMedicationInput, now: Date): RegistryRecord {
+  const pt = (m: boolean | null) => (m === true ? 1 : m === false ? -1 : 0);
+  const packName = val(input, 'productName');
+  const nameScore = (r: RegistryRecord) => {
+    if (packName && normalizeText(packName) === normalizeText(r.productName)) return 4;
+    const m = productNameMatches(packName, r.productName);
+    return m !== true ? pt(m) : productNameNearMiss(packName, r.productName) ? 1 : 3;
+  };
+  const holder = (r: RegistryRecord) => {
+    const made = manufacturerMatches(val(input, 'manufacturer'), r.applicant);
+    const marketed = manufacturerMatches(val(input, 'marketedBy'), r.applicant);
+    return made === true || marketed === true ? 1 : pt(marketed ?? made);
+  };
+  const score = (r: RegistryRecord) => nameScore(r)
+    + pt(ingredientMatches(val(input, 'activeIngredient'), r.ingredient ?? r.composition ?? null))
+    + pt(strengthMatches(val(input, 'strength'), r.strength))
+    + pt(formMatches(val(input, 'dosageForm'), r.form ?? null))
+    + holder(r);
+  const current = (r: RegistryRecord) => {
+    const exp = parseIsoDate(r.expiryDate);
+    const unexpired = !exp || !pastDay(exp, now);
+    return (r.status?.trim().toLowerCase() === 'active' ? 2 : 0) + (unexpired ? 1 : 0);
+  };
+  // Array.prototype.sort is stable, so remaining ties keep file order.
+  return [...records].sort((a, b) => score(b) - score(a) || current(b) - current(a))[0];
 }
 
 // Pack says "Made by X (abroad), marketed by Y (Nigeria)"; the registry lists Y. Either may match.
@@ -133,10 +165,11 @@ function alertSource(a: Alert) {
 }
 
 type AlertKey = AlertMatch['matchedOn'][number];
-interface AlertHit { alert: Alert; product: AlertProduct; on: Set<AlertKey>; strong: boolean }
+// unrelated: only the batch string is shared, and both name and company differ (another product's batch code).
+interface AlertHit { alert: Alert; product: AlertProduct; on: Set<AlertKey>; strong: boolean; unrelated: boolean }
 
 // Does the pack contradict the alert's product? Batch codes ("001", "B2401") are not globally unique, so a
-// shared batch is RED only when neither name nor company disagrees, AMBER when one does, and no hit when both do.
+// shared batch is RED only when neither name nor company disagrees, and AMBER otherwise (never silently GREEN).
 function contradicts(input: StandardizedMedicationInput, p: AlertProduct) {
   const name = productNameMatches(val(input, 'productName'), p.productName ?? null);
   const maker = manufacturerMatches(val(input, 'marketedBy') ?? val(input, 'manufacturer'), p.manufacturer ?? null)
@@ -148,7 +181,7 @@ function findAlerts(input: StandardizedMedicationInput, ds: Dataset): AlertHit[]
   const hits = new Map<string, AlertHit>();
   const add = (a: Alert, p: AlertProduct, on: AlertKey) => {
     const key = `${a.id}:${a.products.indexOf(p)}`;
-    const h = hits.get(key) ?? { alert: a, product: p, on: new Set<AlertKey>(), strong: false };
+    const h = hits.get(key) ?? { alert: a, product: p, on: new Set<AlertKey>(), strong: false, unrelated: false };
     h.on.add(on);
     hits.set(key, h);
   };
@@ -178,8 +211,9 @@ function findAlerts(input: StandardizedMedicationInput, ds: Dataset): AlertHit[]
     const regIsFake = !!reg && !ds.byRegNo.has(reg);
     const regOk = h.on.has('nafdacRegNo') && (regIsFake || batchOk);
     h.strong = batchOk || regOk;
-    // A batch string shared with an unrelated product is no hit at all.
-    if (h.on.size === 1 && h.on.has('batchNo') && c.both) continue;
+    // A batch string shared with an unrelated product is not RED (batch codes repeat across makers), but a
+    // copied alert batch on another brand's pack still needs a closer look, so it stays an AMBER hit.
+    h.unrelated = h.on.size === 1 && h.on.has('batchNo') && c.both;
     out.push(h);
   }
   return out;
@@ -203,7 +237,7 @@ export function checkMedication(
   const regRaw = val(input, 'nafdacRegNo');
   const regNo = normalizeRegNo(regRaw);
   const records = regNo ? ds.byRegNo.get(regNoKey(regNo)!) ?? [] : [];
-  const rec = records.length ? bestRecord(records, input) : null;
+  const rec = records.length ? bestRecord(records, input, now) : null;
   const corrected = regNoWasCorrected(regRaw);
   const lookupDown = !ds.registry.available;
   // No Greenbook row: look for other evidence about the number. Official NAFDAC documents outrank listings.
@@ -214,19 +248,24 @@ export function checkMedication(
   const comparisonSource = rec ? 'NAFDAC record' : ref ? (ref.official ? 'NAFDAC historical record' : `${ref.sourceName.replace(/ product registry$/, '')} listing`) : 'NAFDAC record';
   const registryLine = `${ds.registry.total.toLocaleString('en-US')} products in the NAFDAC Greenbook (snapshot downloaded ${formatDate(ds.registry.snapshotDate)})`;
 
-  // ---- U1: no registration number on the pack
+  // ---- U1: no registration number on the pack (or one the photo showed but couldn't be read)
   if (!regNo) {
+    const torn = unreadable(input, 'nafdacRegNo');
     findings.push({
       rule: 'U1',
       code: 'NO_REG_NO',
       verdict: 'unsure',
-      title: 'No NAFDAC registration number',
-      message: 'The pack has no NAFDAC registration number we could use, so we could not look it up in the registry.',
+      title: torn ? "Registration number couldn't be read clearly" : 'No NAFDAC registration number',
+      message: torn
+        ? `Part of a NAFDAC registration number is visible ("${input.fields.nafdacRegNo.sourceText!.trim()}"), but it couldn't be read in full from the photo, so we could not look it up in the registry.`
+        : 'The pack has no NAFDAC registration number we could use, so we could not look it up in the registry.',
       evidence: [row('nafdacRegNo', null, null, null)],
       source: greenbookSource(ds),
-      nextStep: 'Look for "NAFDAC Reg. No." on every side of the pack and near the barcode. A medicine sold in Nigeria must show one. If there is none, treat it with suspicion and ask a pharmacist.',
+      nextStep: torn
+        ? 'Read the number off the pack yourself (it often starts with a letter and has a dash, like A4-1234), type it in, and check again.'
+        : 'Look for "NAFDAC Reg. No." on every side of the pack and near the barcode. A medicine sold in Nigeria must show one. If there is none, treat it with suspicion and ask a pharmacist.',
     });
-    notChecked.push('Registration number (not on the pack)');
+    notChecked.push(`Registration number (${absentWhy(input, 'nafdacRegNo')})`);
   } else {
     checked.push(`Registration number ${regNo} against ${registryLine}`);
   }
@@ -278,7 +317,7 @@ export function checkMedication(
 
   // ---- R2: on an alert
   const alertHits = findAlerts(input, ds);
-  for (const { alert, product: p, on, strong } of alertHits) {
+  for (const { alert, product: p, on, strong, unrelated } of alertHits) {
     const evidence: ComparisonRow[] = [];
     if (on.has('batchNo')) evidence.push(row('batchNo', val(input, 'batchNo'), (p.batches ?? []).join(', ') || null, true));
     if (on.has('nafdacRegNo')) evidence.push(row('nafdacRegNo', regNo, p.regNo ?? null, true));
@@ -287,6 +326,19 @@ export function checkMedication(
       evidence.push(row('manufacturer', val(input, 'manufacturer'), p.manufacturer ?? null, manufacturerMatches(val(input, 'manufacturer'), p.manufacturer ?? null)));
     }
     const what = on.has('batchNo') ? 'batch' : on.has('nafdacRegNo') ? 'registration number' : 'product';
+    if (unrelated) {
+      findings.push({
+        rule: 'R2',
+        code: 'SIMILAR_PRODUCT_ALERT',
+        verdict: 'amber',
+        title: 'Batch number appears on a NAFDAC alert for a different product',
+        message: `Batch ${val(input, 'batchNo')} is listed in ${alertSource(alert).name} (${formatDate(alert.date)}, ${alert.url}) for ${p.productName ?? 'another product'}${p.manufacturer ? ` from ${p.manufacturer}` : ''}. The name and company on this pack are different, so it may be a coincidence, but fakers also copy batch numbers from other packs.`,
+        evidence,
+        source: alertSource(alert),
+        nextStep: `Compare the batch number on the pack carefully with alert ${alert.alertNo}, and ask a pharmacist before using it.`,
+      });
+      continue;
+    }
     findings.push({
       rule: 'R2',
       code: strong ? 'REGULATORY_ALERT' : 'SIMILAR_PRODUCT_ALERT',
@@ -306,7 +358,7 @@ export function checkMedication(
   }
   const batch = val(input, 'batchNo');
   if (batch) checked.push(`Batch ${batch} against ${ds.alerts.length} human-checked alert${ds.alerts.length === 1 ? '' : 's'} (last NAFDAC alert ${formatDate(ds.lastAlertDate)})`);
-  else notChecked.push('Batch number (not on the pack)');
+  else notChecked.push(`Batch number (${absentWhy(input, 'batchNo')})`);
   if (regNo) checked.push(`Registration number against the same alerts`);
 
   if (rec) {
@@ -358,7 +410,7 @@ export function checkMedication(
     }
     const comparedFields = comparison.filter((r) => r.match !== null && r.field !== 'nafdacRegNo').map((r) => r.label.toLowerCase());
     if (comparedFields.length) checked.push(`${comparedFields.join(', ')} against NAFDAC's record for ${rec.regNo}`);
-    for (const r of comparison) if (r.match === null && r.field !== 'nafdacRegNo') notChecked.push(`${r.label} (${r.onPack ? 'not in the registry record' : 'not on the pack'})`);
+    for (const r of comparison) if (r.match === null && r.field !== 'nafdacRegNo') notChecked.push(`${r.label} (${r.onPack ? 'not in the registry record' : absentWhy(input, r.field)})`);
 
     // ---- R4: registration not active or expired
     const regExpiry = parseIsoDate(rec.expiryDate);
@@ -425,7 +477,7 @@ export function checkMedication(
   // ---- R6: pack past its printed expiry
   const expRaw = val(input, 'expiryDate');
   const packExpiry = parsePackDate(expRaw);
-  if (!expRaw) notChecked.push('Expiry date (not on the pack)');
+  if (!expRaw) notChecked.push(`Expiry date (${absentWhy(input, 'expiryDate')})`);
   else if (!packExpiry) notChecked.push(`Expiry date ("${expRaw}" is not a date format we can read; check it by eye)`);
   else {
     checked.push(`Printed expiry date ${expRaw}`);

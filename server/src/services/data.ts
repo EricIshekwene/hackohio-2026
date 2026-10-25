@@ -76,14 +76,22 @@ function loadRegistry(dir: string) {
   }
 }
 
+// A trailing Greenbook editor's note in brackets. Real name parts in brackets ("(Medium)", "(IM)") are kept.
+const EDITOR_NOTE = /[\s*_]*\((duplicate|updates needed|smpc|incorrect|incomplete|wrong smpc|check |needs info|no applicant|nrn )[^)]*\)?\s*$/i;
+
 export function loadDataset(dir = DATA_DIR): Dataset {
   const { reg, isSeed, available } = loadRegistry(dir);
   // Greenbook pads names with "##"/"_" and marks some with "**", a leading "#" or a trailing "$"; strip them.
+  // Some carry an editor's note ("Eutram 100 Capsules** (duplicate NRN)", "Loranax Tablets_ (duplicate)",
+  // "(incorrect SMPC)"): not part of the name, so it must not reach messages or name matching.
   const products: RegistryRecord[] = (reg.products as RegistryRecord[])
     .filter((p) => p && typeof p.regNo === 'string')
     .map((p) => ({
       ...p,
-      productName: String(p.productName ?? '').replace(/^[#*\s]+|[#*_$\s]+$/g, ''),
+      productName: String(p.productName ?? '')
+        .replace(/\*\*+\s*(\(.*)?$/, '')
+        .replace(EDITOR_NOTE, '')
+        .replace(/^[#*\s]+|[#*_$\s]+$/g, ''),
       applicant: String(p.applicant ?? '').replace(/&amp;/g, '&'),
       strength: String(p.strength ?? ''),
       status: String(p.status ?? 'unknown'),

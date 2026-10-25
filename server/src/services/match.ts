@@ -18,23 +18,30 @@ export function productNameMatches(onPack: string | null, inRegistry: string | n
   return tokenMatch(a[0], b[0]) || a.some((t) => t.length >= 5 && b.includes(t));
 }
 
-// A fuzzy "match" that only passed on similarity: no brand word is spelled the same. On a medicine pack a
-// one-letter brand misspelling ("Artheqet" for "Artheget") is a classic sign of a fake, so callers must not
-// treat it as consistent. "Artheget" vs "Artheget EZ" is NOT a near miss (the brand word is identical).
+// The same word, allowing only a plural "s" ("Chemical" / "Chemicals"): not a spelling difference.
+function sameWord(a: string, b: string): boolean {
+  return a === b || a === `${b}s` || b === `${a}s`;
+}
+
+// True when some pack word is only *close* to a registry word: not itself a registry word, but within
+// tokenMatch's 1-2 letters of one. Other words matching exactly don't excuse it ("Betadlne Germicide Gargle").
+function hasFuzzyOnlyWord(a: string[], b: string[]): boolean {
+  return a.some((t) => !b.some((u) => sameWord(t, u)) && b.some((u) => tokenMatch(t, u)));
+}
+
+// A fuzzy "match" where a word is misspelled. On a medicine pack a one-letter brand misspelling ("Artheqet"
+// for "Artheget", "Betadlne" for "Betadine") is a classic sign of a fake, so callers must not treat it as
+// consistent. Not near misses: case/punctuation only, "Artheget" vs "Artheget EZ", "Germicide Gargle" (a word left out).
 export function productNameNearMiss(onPack: string | null, inRegistry: string | null): boolean {
   if (productNameMatches(onPack, inRegistry) !== true) return false;
   if (normalizeText(onPack) === normalizeText(inRegistry)) return false;
-  const a = nameTokens(onPack);
-  const b = nameTokens(inRegistry);
-  return a[0] !== b[0] && !a.some((t) => t.length >= 5 && b.includes(t));
+  return hasFuzzyOnlyWord(nameTokens(onPack), nameTokens(inRegistry));
 }
 
-// Same for companies: matched only because a word was close ("Getz" vs "Gelz Pharma"), never identical.
+// Same for companies: a word is close but not identical ("Novartls", "Embessy"), even if another word matches.
 export function manufacturerNearMiss(onPack: string | null, inRegistry: string | null): boolean {
   if (manufacturerMatches(onPack, inRegistry) !== true) return false;
-  const a = companyTokens(onPack);
-  const b = companyTokens(inRegistry);
-  return !a.some((t) => b.includes(t));
+  return hasFuzzyOnlyWord(companyTokens(onPack), companyTokens(inRegistry));
 }
 
 // Manufacturer: share at least one meaningful word after dropping "Ltd", "Pharma", "Nigeria"...

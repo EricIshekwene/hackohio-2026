@@ -6,7 +6,7 @@ import { formatDate } from './dates';
 export function buildReport(req: ReportRequest): ReportDraft {
   const { input, result } = req;
   const f = input.fields;
-  const v = (k: keyof typeof f) => f[k]?.value || '(not on pack)';
+  const v = (k: keyof typeof f) => f[k]?.value?.trim() || (f[k]?.sourceText?.trim() ? "(couldn't be read from the photo)" : '(not on pack)');
   const tier = result.legend.label.toUpperCase();
   const product = f.productName?.value || 'unknown product';
   // A coverage gap is not a suspicion of falsification; don't tell NAFDAC it is.

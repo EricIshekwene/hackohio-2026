@@ -3,8 +3,18 @@
 // NAFDAC reg nos look like A4-6238, 04-1234, B4-0123, A11-0123.
 // Returns the display form (with hyphen) or null if nothing usable is left.
 // Before any O->0 repair: labels stripped, separators unified (Unicode dashes, minus, no-break spaces).
+// Cyrillic and Greek capitals that look like Latin letters (typed on a phone keyboard, or pasted). Cyrillic
+// Ze looks like a 3.
+const LOOKALIKES: Record<string, string> = {
+  А: 'A', В: 'B', Е: 'E', К: 'K', М: 'M', Н: 'H', О: 'O', Р: 'P', С: 'C', Т: 'T', Х: 'X', З: '3',
+  Α: 'A', Β: 'B', Ε: 'E', Κ: 'K', Μ: 'M', Ν: 'N', Ο: 'O', Ρ: 'P', Τ: 'T', Χ: 'X',
+};
+// Zero-width spaces/joiners, LRM/RLM, bidi embeddings and isolates, BOM: invisible, never part of a number.
+const INVISIBLE = /[​-‏‪-‮⁦-⁩﻿]/g;
+
 function cleanRegNo(raw: string): string {
-  let s = raw.normalize('NFKC').toUpperCase();
+  let s = raw.normalize('NFKC').replace(INVISIBLE, '').toUpperCase();
+  s = s.replace(/[АВЕКМНОРСТХЗΑΒΕΚΜΝΟΡΤΧ]/g, (c) => LOOKALIKES[c]);
   // Labels only as whole words, so a misread inside the number ("A4-NO12") isn't silently cut out.
   s = s.replace(/\b(NAFDAC|REG(ISTRATION)?(NO)?|NO|NUMBER)\b\.?|[:#]/g, ' ');
   return s.replace(/[‐-―−﹣－_.\/\\\s]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');

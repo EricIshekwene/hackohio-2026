@@ -32,12 +32,24 @@ function validateReportExtras(body: ReportRequest | undefined): string[] {
   return errors;
 }
 
-export function createApp(opts: { dataset?: Dataset; now?: () => Date } = {}) {
+// TRUST_PROXY: a hop count ("1"), "true"/"false", or Express's names/subnets ("loopback", "10.0.0.0/8").
+function trustProxySetting(raw: string | undefined): boolean | number | string {
+  const s = raw?.trim();
+  if (!s) return 'loopback';
+  if (/^\d+$/.test(s)) return Number(s);
+  if (s === 'true' || s === 'false') return s === 'true';
+  return s;
+}
+
+export function createApp(opts: { dataset?: Dataset; now?: () => Date; clientDist?: string } = {}) {
   const ds = () => opts.dataset ?? getDataset();
   const now = opts.now ?? (() => new Date());
   const app = express();
-  // Behind one hosting proxy (Railway/Render), so req.ip is the visitor, not the proxy. Set TRUST_PROXY=0 when exposed directly.
-  app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 1));
+  app.disable('x-powered-by');
+  // req.ip feeds the per-IP extract cap, so X-Forwarded-For is believed only from a proxy on this machine (the
+  // cloudflared dev tunnel). Trusting any first hop would let a client that reaches the server directly spoof
+  // its IP. Behind a hosting proxy (Railway/Render), set TRUST_PROXY=1 (or that proxy's subnet).
+  app.set('trust proxy', trustProxySetting(process.env.TRUST_PROXY));
   app.use(express.json({ limit: '1mb' }));
 
   // Dev CORS for the Vite client (prod serves the client from this same origin).
@@ -78,6 +90,7 @@ export function createApp(opts: { dataset?: Dataset; now?: () => Date } = {}) {
     const v = validateInput(body?.input);
     const extra = validateReportExtras(body);
     if (!v.ok || extra.length) return fail(res, 400, { error: 'invalid_input', message: 'Send { input, result } from /api/check.', details: v.ok ? extra : [...v.errors, ...extra] });
+    if (!v.input.confirmedByUser) return fail(res, 422, { error: 'unconfirmed', message: 'Confirm every field before drafting a report.' });
     // Re-run the check rather than trust the posted result: the reasons in the email are always code-produced,
     // and a stale or hand-made result can't crash the draft.
     const result = checkMedication(v.input, ds(), now());
@@ -93,15 +106,23 @@ export function createApp(opts: { dataset?: Dataset; now?: () => Date } = {}) {
   // /api/explain (Claude rewording) is a stretch goal.
 
   // Production: serve the built client from the same origin.
-  const clientDist = path.resolve(__dirname, '../../client/dist');
+  // Client routes get index.html; /api (with or without a path) and missing /assets/ files get a real 404.
+  const clientDist = opts.clientDist ?? path.resolve(__dirname, '../../client/dist');
   if (existsSync(clientDist)) {
     app.use(express.static(clientDist));
-    app.get(/^(?!\/api\/).*/, (_req, res) => res.sendFile(path.join(clientDist, 'index.html')));
+    app.get(/^(?!\/api(?:\/|$))(?!\/assets\/).*/, (_req, res) => res.sendFile(path.join(clientDist, 'index.html')));
   }
 
   app.use('/api', (_req, res) => fail(res, 404, { error: 'not_found', message: 'No such endpoint.' }));
-  app.use((err: Error & { type?: string }, _req: Request, res: Response, _next: NextFunction) => {
+  // Body-parser errors carry a 4xx status and a type: the client's fault, not a server error.
+  app.use((err: Error & { type?: string; status?: number; statusCode?: number }, _req: Request, res: Response, _next: NextFunction) => {
     if (err.type === 'entity.parse.failed') return fail(res, 400, { error: 'invalid_input', message: 'Body is not valid JSON.' });
+    if (err.type === 'entity.too.large') return fail(res, 413, { error: 'invalid_input', message: 'Request body is too large.' });
+    if (err.type === 'encoding.unsupported' || err.type === 'charset.unsupported') {
+      return fail(res, 415, { error: 'invalid_input', message: 'Unsupported body encoding or charset.' });
+    }
+    const status = err.status ?? err.statusCode;
+    if (typeof status === 'number' && status >= 400 && status < 500) return fail(res, status, { error: 'invalid_input', message: 'The request could not be processed.' });
     console.error(err);
     fail(res, 500, { error: 'server_error', message: 'Something went wrong.' });
   });

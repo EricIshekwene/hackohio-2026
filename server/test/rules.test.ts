@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import request from 'supertest';
 import packs from '../../shared/fixtures/demo-packs.json';
@@ -283,5 +286,228 @@ describe('HTTP', () => {
     expect(res.body.to).toBe('pharmacovigilance@nafdac.gov.ng');
     expect(res.body.body).toContain('042/2026');
     expect(res.body.mailto.startsWith('mailto:pharmacovigilance@nafdac.gov.ng?subject=')).toBe(true);
+  });
+});
+
+// ---- Bug-bash fixes (real NAFDAC rows from data/registry.json)
+const full = ds.registry.isSeed ? it.skip : it;
+const fld = (value: string | null, sourceText?: string) => ({ value, editedByUser: false, ...(sourceText ? { sourceText } : {}) });
+// A genuine pack built from a registry row: what the pack prints, field by field.
+function genuine(p: { name: string; strength: string; regNo: string; maker: string; ingredient?: string; form?: string }): StandardizedMedicationInput {
+  return {
+    source: 'manual',
+    confirmedByUser: true,
+    fields: {
+      productName: fld(p.name), strength: fld(p.strength), nafdacRegNo: fld(p.regNo), manufacturer: fld(p.maker),
+      batchNo: fld('ZZ12345'), expiryDate: fld('2028-01'),
+      ...(p.ingredient ? { activeIngredient: fld(p.ingredient) } : {}),
+      ...(p.form ? { dosageForm: fld(p.form) } : {}),
+    },
+  };
+}
+const rules = (r: ReturnType<typeof check>) => r.reasons.map((f) => f.rule);
+const spellingOf = (r: ReturnType<typeof check>) => r.reasons.find((f) => f.code === 'NAME_NEAR_MISS');
+
+describe('near misses next to exact words (bug 1)', () => {
+  const betadine = { name: 'Betadine Germicide Gargle', strength: '2%', regNo: '04-4013', maker: 'Phillips Pharmaceuticals (Nigeria) Limited' };
+  full('genuine Betadine pack is GREEN', () => expect(check(genuine(betadine)).verdict).toBe('green'));
+  full('"Betadlne Germicide Gargle" is a spelling near miss (AMBER), even though two words match exactly', () => {
+    const r = check(genuine({ ...betadine, name: 'Betadlne Germicide Gargle' }));
+    expect(r.verdict).toBe('amber');
+    expect(spellingOf(r)?.evidence.map((e) => e.field)).toContain('productName');
+  });
+  full('a pack that leaves a word out ("Germicide Gargle") is not a near miss', () => {
+    expect(spellingOf(check(genuine({ ...betadine, name: 'Germicide Gargle' })))).toBeUndefined();
+  });
+  full.each([
+    ['B4-0601', 'Embagra 50 Tablets', '50 mg', 'Embessy Pharmaceutical and Chemicals'],
+    ['A4-2911', 'Clincap 150 Capsules', '150 mg', 'Embessy Pharmaceutical and Chemicals'],
+    ['B4-2649', 'Glylow SR 1000 Tablet', '1000 mg', 'Genarics and Specialities'],
+    ['04-7302', 'Rocephin 1G Powder for injection I.M.', '1 g', 'Roche Prokucts'],
+  ])('%s with a misspelt company "%s / %s" is a spelling near miss', (regNo, name, strength, maker) => {
+    const r = check(genuine({ name, strength, regNo, maker }));
+    expect(r.verdict).toBe('amber');
+    expect(spellingOf(r)?.evidence.map((e) => e.field)).toContain('manufacturer');
+  });
+  full('the correctly spelt company on B4-0601 is GREEN', () => {
+    expect(check(genuine({ name: 'Embagra 50 Tablets', strength: '50 mg', regNo: 'B4-0601', maker: 'Embassy Pharmaceutical and Chemicals Limited' })).verdict).toBe('green');
+  });
+});
+
+describe('several rows on one reg no. (bugs 2 and 3)', () => {
+  full('A4-101681: the "1 Mega" pack with ingredient "Crystalline Penicillin" matches its own row', () => {
+    const r = check(genuine({ name: 'Global Young Crystalline Penicillin G. Injection 1 Mega', strength: '1 Mega', regNo: 'A4-101681', maker: 'Global Young Pharma Limited', ingredient: 'Crystalline Penicillin', form: 'Injection' }));
+    expect(rules(r)).toEqual(['R5']);
+    expect(r.registryRecord?.ingredient).toBe('Crystalline Penicillin');
+  });
+  full('A4-2789: "Finamin Syrup" with ingredient "Amino acids; Vitamins" is not RED', () => {
+    const r = check(genuine({ name: 'Finamin Syrup', strength: '15 mL', regNo: 'A4-2789', maker: 'Franphino Pharmaceuticals Nigeria Limited', ingredient: 'Amino acids; Vitamins', form: 'Syrup' }));
+    expect(r.verdict).toBe('green');
+    expect(r.registryRecord?.ingredient).toBe('Amino acids; Vitamins');
+  });
+  full('A4-7301: a genuine Eutram capsule pack gets no R3 and no R4 (the Active row is used)', () => {
+    const r = check(genuine({ name: 'Eutram 100 Capsules', strength: '100 mg', regNo: 'A4-7301', maker: 'Eutrix Pharmaceuticals Limited', ingredient: 'Tramadol Hydrochloride', form: 'Capsule' }));
+    expect(rules(r)).toEqual(['R5']);
+    expect(r.registryRecord?.productName).toBe('Eutram 100 Capsules');
+  });
+  full.each([
+    ['A4-1503', 'Co-Diovan 160 mg/12.5 mg Tablet', '160 mg; 12.5 mg', 'Novartis Nigeria Limited'],
+    ['04-8143', 'Lisiofil 10 Tablets', '10 mg', 'Unique Pharmaceuticals Limited'],
+    ['04-8872', 'Perglim 2 Tablets', '2 mg', 'Mega Lifesciences Nigeria Limited'],
+    ['03-8108', 'Standard Q HIV/Syphilis Combo', 'NA', 'Codix Pharma Limited'],
+  ])('%s: a pack matching the Active row is not called Inactive (no R4)', (regNo, name, strength, maker) => {
+    const r = check(genuine({ name, strength, regNo, maker }));
+    expect(rules(r)).not.toContain('R4');
+    expect(r.registryRecord?.status).toBe('Active');
+    expect(r.verdict).toBe('green');
+  });
+  full('Greenbook "** (duplicate NRN)" notes are stripped from product names', () => {
+    const names = ds.byRegNo.get('A47301')!.map((p) => p.productName);
+    expect(names).toEqual(['Amadol Retard Tablet', 'Eutram 100 Capsules']);
+    expect(ds.products.some((p) => p.productName.includes('**') || /\(duplicate/.test(p.productName))).toBe(false);
+  });
+});
+
+describe('alert batch on a different product (bug 4)', () => {
+  full.each([
+    ['A4-6238', 'Artheget EZ', '80 mg; 480 mg', 'Getz Pharma Nigeria Limited'],
+    ['04-9927', 'Lonart-DS Tablets', '80 mg; 480 mg', 'Greenlife Pharmaceutical Limited'],
+  ])('batch BP5203 printed on %s (%s) is AMBER, not GREEN or RED', (regNo, name, strength, maker) => {
+    const p = genuine({ name, strength, regNo, maker });
+    p.fields.batchNo.value = 'BP5203';
+    const r = check(p);
+    expect(r.verdict).toBe('amber');
+    const f = r.reasons.find((x) => x.rule === 'R2')!;
+    expect(f).toMatchObject({ verdict: 'amber', title: 'Batch number appears on a NAFDAC alert for a different product' });
+    expect(f.message).toContain('042/2026');
+    expect(f.message).toContain('19 Aug 2026');
+    expect(f.message).toContain('https://nafdac.gov.ng/');
+    expect(f.nextStep).toMatch(/pharmacist/);
+  });
+});
+
+describe('unreadable vs missing fields (bug 5)', () => {
+  it('a torn reg no. (null value, sourceText "04-77") says it could not be read, not that it is missing', () => {
+    const p = pack('real-green');
+    p.fields.nafdacRegNo = fld(null, '04-77');
+    const r = check(p);
+    expect(r.reasons[0]).toMatchObject({ rule: 'U1', title: "Registration number couldn't be read clearly" });
+    expect(r.notChecked).toContain("Registration number (couldn't be read from the photo)");
+    expect(r.notChecked.join(' ')).not.toContain('Registration number (not on the pack)');
+  });
+  it('an unreadable batch says so in notChecked', () => {
+    const p = pack('real-green');
+    p.fields.batchNo = fld(null, 'BP5');
+    expect(check(p).notChecked).toContain("Batch number (couldn't be read from the photo)");
+  });
+  it('a truly absent reg no. keeps the old wording', () => {
+    const p = pack('real-green');
+    p.fields.nafdacRegNo = fld(null);
+    const r = check(p);
+    expect(r.reasons[0].title).toBe('No NAFDAC registration number');
+    expect(r.notChecked).toContain('Registration number (not on the pack)');
+  });
+});
+
+describe('look-alike and invisible characters in reg nos (bug 6)', () => {
+  it.each([
+    ['А4-6238', 'A4-6238'], // Cyrillic A
+    ['Α4-6238', 'A4-6238'], // Greek Alpha
+    ['В4-0601', 'B4-0601'], // Cyrillic Ve
+    ['а4-6238', 'A4-6238'], // Cyrillic lowercase a
+    ['A4-62З8', 'A4-6238'], // Cyrillic Ze read as 3
+    ['A4-​6238', 'A4-6238'], // zero-width space
+    ['‫A4-6238‬', 'A4-6238'], // RTL embedding
+    ['⁦A4-6238⁩﻿', 'A4-6238'], // isolate + BOM
+    ['‏A4‎-6238', 'A4-6238'], // RLM / LRM
+  ])('%j -> %s', (raw, want) => expect(normalizeRegNo(raw)).toBe(want));
+  it('a Cyrillic-A reg no. on the real pack is GREEN, with no "corrected" note', () => {
+    const p = pack('real-green');
+    p.fields.nafdacRegNo.value = 'А4-6238';
+    const r = check(p);
+    expect(r.verdict).toBe('green');
+    expect(r.notes.join(' ')).not.toContain('letter O');
+  });
+});
+
+describe('HTTP hardening (bugs 7-10)', () => {
+  const app = createApp({ dataset: ds, now: () => NOW });
+  type TrustFn = (addr: string, i: number) => boolean;
+  const withTrustProxy = (value: string | undefined, fn: () => void) => {
+    const prev = process.env.TRUST_PROXY;
+    if (value === undefined) delete process.env.TRUST_PROXY;
+    else process.env.TRUST_PROXY = value;
+    try { fn(); } finally {
+      if (prev === undefined) delete process.env.TRUST_PROXY;
+      else process.env.TRUST_PROXY = prev;
+    }
+  };
+
+  it('an oversized body is 413 JSON, not 500', async () => {
+    const res = await request(app).post('/api/check').set('Content-Type', 'application/json').send(JSON.stringify({ pad: 'x'.repeat(1_100_000) }));
+    expect(res.status).toBe(413);
+    expect(res.body.error).toBeTruthy();
+    expect(JSON.stringify(res.body)).not.toMatch(/node_modules|at \w+ \(/);
+  });
+
+  it('an unsupported charset is 415 JSON', async () => {
+    const res = await request(app).post('/api/check').set('Content-Type', 'application/json; charset=klingon').send('{}');
+    expect(res.status).toBe(415);
+    expect(res.body.error).toBeTruthy();
+  });
+
+  it('an unsupported content encoding is 415 JSON', async () => {
+    const res = await request(app).post('/api/check').set('Content-Type', 'application/json').set('Content-Encoding', 'bogus').send('{}');
+    expect(res.status).toBe(415);
+    expect(res.body.error).toBeTruthy();
+  });
+
+  it('trust proxy defaults to loopback only (a direct client cannot spoof X-Forwarded-For)', () => withTrustProxy(undefined, () => {
+    const trust = createApp({ dataset: ds }).get('trust proxy fn') as TrustFn;
+    expect(trust('127.0.0.1', 0)).toBe(true);
+    expect(trust('203.0.113.7', 0)).toBe(false);
+  }));
+
+  it('TRUST_PROXY still overrides, as a number or a string', () => {
+    withTrustProxy('1', () => expect((createApp({ dataset: ds }).get('trust proxy fn') as TrustFn)('203.0.113.7', 0)).toBe(true));
+    withTrustProxy('10.0.0.0/8', () => {
+      const t = createApp({ dataset: ds }).get('trust proxy fn') as TrustFn;
+      expect(t('10.1.2.3', 0)).toBe(true);
+      expect(t('203.0.113.7', 0)).toBe(false);
+    });
+  });
+
+  describe('with a built client', () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'medcheck-client-'));
+    mkdirSync(path.join(dir, 'assets'));
+    writeFileSync(path.join(dir, 'index.html'), '<!doctype html><title>MedCheck</title>');
+    writeFileSync(path.join(dir, 'assets', 'app.js'), 'console.log(1)');
+    const web = createApp({ dataset: ds, now: () => NOW, clientDist: dir });
+
+    it('does not send X-Powered-By', async () => {
+      expect((await request(web).get('/api/health')).headers['x-powered-by']).toBeUndefined();
+    });
+    it.each(['/api', '/api/', '/api/nope'])('GET %s is the 404 JSON, not index.html', async (url) => {
+      const res = await request(web).get(url);
+      expect(res.status).toBe(404);
+      expect(res.body.error).toBe('not_found');
+    });
+    it('a missing /assets/*.js is 404; an existing one is served', async () => {
+      expect((await request(web).get('/assets/missing-abc123.js')).status).toBe(404);
+      expect((await request(web).get('/assets/app.js')).status).toBe(200);
+    });
+    it('client routes still get index.html', async () => {
+      const res = await request(web).get('/check/result');
+      expect(res.status).toBe(200);
+      expect(res.text).toContain('MedCheck');
+    });
+  });
+
+  it('/api/report refuses unconfirmed input with 422', async () => {
+    const input = pack('alert-042');
+    input.confirmedByUser = false;
+    const res = await request(app).post('/api/report').send({ input });
+    expect(res.status).toBe(422);
+    expect(res.body.error).toBe('unconfirmed');
   });
 });

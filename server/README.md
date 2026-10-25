@@ -17,7 +17,7 @@ npm run fixtures     # rewrite shared/fixtures/*.result.json (mock data for the 
 | GET | `/api/meta` | | data dates, registry size, caveat |
 | GET | `/api/legend` | | the 4 verdict tiers (labels, colours, meaning), worst first |
 | POST | `/api/check` | `StandardizedMedicationInput` | `VerificationResult` (400 if malformed, 422 if `confirmedByUser` is false) |
-| POST | `/api/report` | `{ input, result, reporter?, whereBought?, notes? }` | `ReportDraft` (prefilled NAFDAC email + mailto/tel links) |
+| POST | `/api/report` | `{ input, result, reporter?, whereBought?, notes? }` | `ReportDraft` (prefilled NAFDAC email + mailto/tel links; 400 if malformed, 422 if `confirmedByUser` is false) |
 
 `/api/explain` (Claude rewording, Pidgin) is a stretch goal.
 
@@ -38,21 +38,22 @@ Types live in `shared/types.ts`, the legend in `shared/legend.ts`.
 | Rule | When | Colour |
 |---|---|---|
 | R1 | Reg no. not in our Greenbook snapshot. Never RED: the snapshot is not exhaustive. Headline is "Unable to verify registration", or "Historical registration record found" / "Product listing found, registration unverified" when `data/references.json` has a record | AMBER |
-| R2 | Batch or reg no. on a human-checked alert, and neither the product name nor the company contradicts the alert. A reg no. alone counts only if the number isn't in the registry | RED (AMBER if one detail differs, or only product + manufacturer match and the pack has no batch; no hit if name and company both differ) |
+| R2 | Batch or reg no. on a human-checked alert, and neither the product name nor the company contradicts the alert. A reg no. alone counts only if the number isn't in the registry | RED (AMBER if one detail differs, or only product + manufacturer match and the pack has no batch) |
+| R2 | Batch no. on an alert, but both the product name and the company differ from the alert's product: "Batch number appears on a NAFDAC alert for a different product" (cites the alert) | AMBER |
 | R3 | Reg no. exists, but product name or active ingredient differs (or the licence holder differs too) | RED |
 | R3 | Only the manufacturer differs and the pack names no "marketed by" holder (NAFDAC lists the Nigerian holder, not the factory) | AMBER |
 | R3 | Reg no. exists, only strength or dosage form differs | AMBER |
-| R3 | Product or company name matches only fuzzily (1–2 letters off, e.g. "Artheqet" vs "Artheget"): "Spelling differs from NAFDAC's record" | AMBER |
+| R3 | A word in the product or company name is 1–2 letters off a registry word (e.g. "Artheqet" vs "Artheget", "Betadlne Germicide Gargle"), even if other words match exactly: "Spelling differs from NAFDAC's record". Case, punctuation, plural "s" and left-out words don't count | AMBER |
 | R4 | Registration status not Active, or registration expired | AMBER |
 | R6 | Pack's printed expiry has passed | AMBER |
-| U1 | No reg no. on the pack | UNSURE |
+| U1 | No reg no. on the pack ("Registration number couldn't be read clearly" when the photo showed one that couldn't be read) | UNSURE |
 | U2 | Reg no. had a letter O read as zero and still has no match: "Check the registration number" | UNSURE |
 | U3 | Registry file could not be loaded: "Verification temporarily unavailable" | UNSURE |
 | R5 | Nothing above fired | GREEN + "Not proof of authenticity" |
 
 Every result also carries a machine-readable `status` (`registry_match_current`, `registry_match_historical`, `external_product_match`, `record_mismatch`, `confirmed_regulatory_alert`, `confirmed_inactive_or_cancelled`, `not_found_in_snapshot`, `lookup_unavailable`, `input_uncertain`), a `severity`, a `code` on every reason, `authenticityVerified: false`, and `evidence`: every source consulted, found or not, with its date and limitations. Precedence: alert > mismatch > inactive > current match > the rest; a listing never overrides an alert or a mismatch. Dates printed on a pack or registration are valid through the end of that day.
 
-Registration expiring within 60 days adds a note but doesn't change the colour. Missing batch or expiry adds a "not checked" line.
+Registration expiring within 60 days adds a note but doesn't change the colour. Missing batch or expiry adds a "not checked" line ("couldn't be read from the photo" when the photo showed one). When several Greenbook rows share a number, the one that best fits the pack is used (name, ingredient, strength, form, holder), ties going to an Active, unexpired row; editor's notes such as "** (duplicate NRN)" are stripped from names.
 
 ## Data
 

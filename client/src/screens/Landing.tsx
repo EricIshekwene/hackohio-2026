@@ -5,9 +5,9 @@ import { DEMO_PACKS, getMeta, USE_MOCKS, type DemoPackId, type Meta } from '@/li
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataFooter, Shell } from '@/components/app-shell';
-import { VerdictIcon } from '@/components/verdict';
 
-// What the app does, shown with a real result instead of clip art: the hero demo pack's two mismatches.
+// What the app does, shown with a real comparison instead of clip art: the hero demo pack's two mismatches.
+// Framed as an example below the headline, with no verdict line, so the start screen never reads as a result.
 function ResultPreview() {
   const red = LEGEND.red;
   const rows = [
@@ -17,10 +17,9 @@ function ResultPreview() {
   ] as const;
   return (
     <div aria-hidden="true" className="overflow-hidden rounded-lg border border-line text-foot">
-      <div className="flex items-center gap-2.5 bg-fill px-3 py-3">
-        <VerdictIcon legend={red} size={20} />
-        <span className="font-semibold text-ink">Do not use this medicine</span>
-        <span className="ml-auto text-cap text-ink-3">Example result</span>
+      <div className="flex items-center justify-between gap-2.5 bg-fill px-3 py-2.5">
+        <span className="text-cap font-medium tracking-[0.02em] text-ink-3 uppercase">Example</span>
+        <span className="text-cap text-ink-2">A cloned NAFDAC number, caught</span>
       </div>
       <div>
         <div className="grid grid-cols-[72px_1fr_1fr] gap-2 border-t border-line px-3 py-2 text-cap text-ink-3">
@@ -77,14 +76,14 @@ export function Landing({ onStart, onManual, onDemo }: { onStart: () => void; on
         </>
       }
     >
-      <ResultPreview />
-      <div className="flex flex-col gap-2 pt-2">
+      <div className="flex flex-col gap-2">
         <h1 className="text-display font-semibold">Check a medicine pack against NAFDAC records</h1>
         <p className="text-body text-ink-2">
           Take a photo of the pack. You confirm what we read, then we check it against the NAFDAC Greenbook and its falsified-medicine alerts.
         </p>
         <p className="text-foot text-ink-3">Have the pack in your hand. It takes about a minute.</p>
       </div>
+      <ResultPreview />
     </Shell>
   );
 }

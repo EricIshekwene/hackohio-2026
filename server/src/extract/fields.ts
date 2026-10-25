@@ -2,7 +2,7 @@
 // Reuses the backend's normalisers where they exist so both layers clean values the same way.
 import type { ExtractedField, StandardizedMedicationInput } from '../../../shared/types';
 import { parsePackDate } from '../services/dates';
-import { normalizeRegNo, normalizeText } from '../services/normalize';
+import { nameTokens, normalizeRegNo, normalizeText, strengthNumbers } from '../services/normalize';
 import { EXTRACT_KEYS, type ExtractKey, type RawExtraction } from './claude';
 
 const REQUIRED: ExtractKey[] = ['productName', 'strength', 'nafdacRegNo', 'manufacturer', 'batchNo', 'expiryDate'];
@@ -112,7 +112,82 @@ export function clean(key: ExtractKey, raw: string | null | undefined): Cleaned 
   return CLEAN[key](raw);
 }
 
-const FREE_TEXT = new Set<ExtractKey>(['productName', 'manufacturer', 'activeIngredient', 'dosageForm', 'marketedBy']);
+// --- Does the cleaned value actually appear in the printed text the AI says it read? ---------------
+// Printed lines carry more than the value ("Artemether 80 mg + Lumefantrine 480 mg Tablets",
+// "MFD 01/2026 EXP 10/2028", "B.No LDS25300 MFD 09/2025"), so each field checks only its own part.
+// Every check must still fail on a real disagreement: a changed digit, a misspelling, the MFD read as expiry.
+
+const tokens = (text: string) =>
+  base(text)
+    .text.toUpperCase()
+    .split(/[\s:;,]+/)
+    .map((t) => t.replace(/^[.(#]+|[.)]+$/g, ''))
+    .filter(Boolean);
+
+/** Joined runs of 1–3 adjacent tokens, so "BP 5203" and "A4 6238" are found too. */
+function windows(ts: string[], join: string): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < ts.length; i++) for (let n = 1; n <= 3 && i + n <= ts.length; n++) out.push(ts.slice(i, i + n).join(join));
+  return out;
+}
+
+const BATCH_LABEL = new Set(['B.NO', 'BNO', 'B/N', 'BN', 'BATCH', 'LOT', 'NO', 'NUMBER', 'BATCH.NO', 'LOT.NO']);
+const EXPIRY_LABEL = /\b(exp(iry)?(\s*date)?|use\s+(by|before)|best\s+before)\b/i;
+const NUMERIC_DATE = /\d{4}[-/.]\d{1,2}(?:[-/.]\d{1,2})?|\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}|\d{1,2}[-/.]\d{2,4}/g;
+const NAMED_DATE = /(?:\d{1,2}\s+)?[A-Za-z]{3,9}[\s\-/.,]*\d{2,4}/g;
+
+const sameMonth = (a: Date, b: Date) => a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth();
+
+function datesIn(text: string): { index: number; date: Date }[] {
+  const found: { index: number; date: Date }[] = [];
+  for (const re of [NUMERIC_DATE, NAMED_DATE]) {
+    for (const m of text.matchAll(re)) {
+      const date = parsePackDate(m[0]);
+      if (date) found.push({ index: m.index ?? 0, date });
+    }
+  }
+  return found.sort((a, b) => a.index - b.index);
+}
+
+function isRun(needle: number[], hay: number[]): boolean {
+  if (!needle.length) return false;
+  for (let i = 0; i + needle.length <= hay.length; i++) if (needle.every((n, j) => hay[i + j] === n)) return true;
+  return false;
+}
+
+export function appearsIn(key: ExtractKey, value: string, printed: string): boolean {
+  switch (key) {
+    case 'strength':
+      return isRun(strengthNumbers(value), strengthNumbers(base(printed).text));
+    case 'activeIngredient': {
+      const have = new Set(nameTokens(base(printed).text));
+      const need = nameTokens(value);
+      return need.length > 0 && need.every((t) => have.has(t));
+    }
+    case 'nafdacRegNo': {
+      const text = base(printed).text;
+      return normalizeRegNo(text) === value || windows(tokens(text), ' ').some((w) => normalizeRegNo(w) === value);
+    }
+    case 'batchNo':
+      return windows(tokens(printed).filter((t) => !BATCH_LABEL.has(t)), '').includes(value);
+    case 'expiryDate': {
+      const want = parsePackDate(value);
+      if (!want) return false;
+      const text = base(printed).text;
+      const dates = datesIn(text);
+      const label = text.match(EXPIRY_LABEL);
+      if (label) {
+        const after = dates.find((d) => d.index >= (label.index ?? 0) + label[0].length);
+        return !!after && sameMonth(after.date, want);
+      }
+      // No expiry label: only unambiguous if every date printed is the same month
+      return dates.length > 0 && dates.every((d) => sameMonth(d.date, want));
+    }
+    default:
+      // brand, companies, dosage form: whole words, in order; a misspelling fails
+      return ` ${normalizeText(printed)} `.includes(` ${normalizeText(value)} `);
+  }
+}
 
 /** confidence = min(AI's own estimate, code checks). */
 export function toExtractedField(
@@ -129,13 +204,8 @@ export function toExtractedField(
     if (!c.formatOk) confidence = Math.min(confidence, 0.5);
     if (c.changedChars) confidence *= 0.8;
     if (raw.readText) {
-      // Printed text often wraps the value ("Manufactured by: X", "X Tablets"); free text only has to
-      // appear as whole words inside it. Codes must match exactly after cleanup. A misspelling still fails.
       const printed = clean(key, raw.readText).value;
-      const same = FREE_TEXT.has(key)
-        ? ` ${normalizeText(raw.readText)} `.includes(` ${normalizeText(c.value)} `)
-        : printed === c.value;
-      if (printed !== null && !same) {
+      if (printed !== null && printed !== c.value && !appearsIn(key, c.value, raw.readText)) {
         confidence = Math.min(confidence, 0.6);
         notes.push(`AI's value differs from the printed text "${raw.readText}"`);
       }

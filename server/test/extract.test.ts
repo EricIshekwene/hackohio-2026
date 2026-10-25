@@ -108,6 +108,33 @@ describe('confidence = min(AI estimate, code checks)', () => {
   });
   it('still flags a misspelled brand', () =>
     expect(toExtractedField('productName', f('Artheget', 'ARTHEQET 80/480', 0.9)).confidence).toBe(0.6));
+  describe('printed line holds more than the value (no false flag)', () => {
+    const line = 'Artemether 80 mg + Lumefantrine 480 mg Tablets';
+    it('strength and ingredient from a combined line', () => {
+      expect(toExtractedField('strength', f('80/480 mg', line, 0.95)).confidence).toBe(0.95);
+      expect(toExtractedField('activeIngredient', f('Artemether + Lumefantrine', line, 0.95)).confidence).toBe(0.95);
+    });
+    it('expiry next to a manufacture date', () =>
+      expect(toExtractedField('expiryDate', f('10/2028', 'MFD 01/2026 EXP 10/2028', 0.95)).confidence).toBe(0.95));
+    it('batch next to other text', () =>
+      expect(toExtractedField('batchNo', f('LDS25300', 'B.No: LDS25300 MFD 09/2025', 0.95)).confidence).toBe(0.95));
+    it('reg no with a space', () =>
+      expect(toExtractedField('nafdacRegNo', f('A4-6238', 'NAFDAC REG NO. A4 6238', 0.95)).confidence).toBe(0.95));
+  });
+  describe('still flags real disagreements', () => {
+    it('strength number not on the pack (5 mg vs 0.5 mg)', () =>
+      expect(toExtractedField('strength', f('5 mg', 'Glibenclamide 0.5 mg Tablets', 0.95)).confidence).toBe(0.6));
+    it('batch with a dropped digit', () =>
+      expect(toExtractedField('batchNo', f('LDS2530', 'B.No: LDS25300 MFD 09/2025', 0.95)).confidence).toBe(0.6));
+    it('manufacture date read as expiry', () =>
+      expect(toExtractedField('expiryDate', f('01/2026', 'MFD 01/2026 EXP 10/2028', 0.95)).confidence).toBe(0.6));
+    it('misspelled ingredient', () =>
+      expect(toExtractedField('activeIngredient', f('Artemeter', 'Artemether 80 mg + Lumefantrine 480 mg', 0.95)).confidence).toBe(0.6));
+    it('changed digit in reg no', () =>
+      expect(toExtractedField('nafdacRegNo', f('A4-6288', 'NAFDAC Reg. No: A4-6238', 0.95)).confidence).toBe(0.6));
+    it('ambiguous dates with no expiry label', () =>
+      expect(toExtractedField('expiryDate', f('10/2028', '01/2026 10/2028', 0.95)).confidence).toBe(0.6));
+  });
   it('zero when nothing found', () => expect(toExtractedField('batchNo', f(null, null, 0.8)).confidence).toBe(0));
   it('photos disagree caps at 0.3', () =>
     expect(toExtractedField('batchNo', { ...f('GL2210'), photosDisagree: true }).confidence).toBe(0.3));

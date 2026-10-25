@@ -77,12 +77,12 @@ async function main() {
           r.fields = {};
           for (const k of SCORED) {
             const want: string | null = g.groundTruth[k] ?? null;
-            const f = (input.fields as any)[k] as { value: string | null; confidence?: number } | undefined;
+            const f = (input.fields as any)[k] as { value: string | null; confidence?: number; sourceText?: string; notes?: string[] } | undefined;
             const got = f?.value ?? null;
             const conf = f?.confidence ?? 0;
             const ok = want === null ? got === null : got !== null && same[k](got, want);
             const outcome: Outcome = ok ? 'right' : conf < LOW ? 'wrong_flagged' : 'wrong_unflagged';
-            r.fields[k] = { want, got, conf, outcome };
+            r.fields[k] = { want, got, conf, outcome, falseFlag: ok && got !== null && conf < LOW, sourceText: f?.sourceText, notes: f?.notes };
           }
           if (raw.photoStatus === 'multiple_packs' || raw.photoStatus === 'not_medicine') {
             r.verdict = `422:${raw.photoStatus}`;
@@ -102,16 +102,21 @@ async function main() {
   results.sort((a, b) => a.file.localeCompare(b.file));
   fs.writeFileSync(path.join(DIR, 'eval-results.json'), JSON.stringify({ ranAt: new Date().toISOString(), cost, results }, null, 2));
 
-  const tally: Record<string, Record<Outcome, number>> = {};
+  const tally: Record<string, Record<Outcome | 'falseFlag', number>> = {};
   for (const r of results) for (const [k, v] of Object.entries<any>(r.fields ?? {})) {
-    tally[k] ??= { right: 0, wrong_flagged: 0, wrong_unflagged: 0 };
+    tally[k] ??= { right: 0, wrong_flagged: 0, wrong_unflagged: 0, falseFlag: 0 };
     tally[k][v.outcome as Outcome]++;
+    if (v.falseFlag) tally[k].falseFlag++;
   }
-  console.log('\nField accuracy (wrong_flagged = user is made to look; wrong_unflagged = slips through):');
+  console.log('\nField accuracy (wrong_flagged = user is made to look; wrong_unflagged = slips through;');
+  console.log('right_but_flagged = read correctly yet highlighted anyway):');
   for (const k of SCORED) {
     const t = tally[k];
-    if (t) console.log(`  ${k.padEnd(13)} right ${t.right}  wrong_flagged ${t.wrong_flagged}  wrong_unflagged ${t.wrong_unflagged}`);
+    if (t) console.log(`  ${k.padEnd(13)} right ${t.right}  wrong_flagged ${t.wrong_flagged}  wrong_unflagged ${t.wrong_unflagged}  right_but_flagged ${t.falseFlag}`);
   }
+  console.log('\nRight but flagged (why):');
+  for (const r of results) for (const [k, v] of Object.entries<any>(r.fields ?? {}))
+    if (v.falseFlag) console.log(`  ${r.id} ${k}: ${JSON.stringify(v.got)} conf ${v.conf} · printed ${JSON.stringify(v.sourceText)} · ${(v.notes ?? ['AI\'s own low score']).join('; ')}`);
   console.log('\nUnflagged mistakes:');
   for (const r of results) for (const [k, v] of Object.entries<any>(r.fields ?? {}))
     if (v.outcome === 'wrong_unflagged') console.log(`  ${r.id} ${k}: got ${JSON.stringify(v.got)} (conf ${v.conf}) want ${JSON.stringify(v.want)}`);

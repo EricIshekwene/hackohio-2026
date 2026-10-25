@@ -8,7 +8,7 @@ function tokenMatch(a: string, b: string): boolean {
 }
 
 // Brand names: match if the brand's first word agrees (allowing one-letter typos),
-// or the whole strings are very close. "Artheget" ~ "Artheget EZ"; "Lonart Forte" != "Artheget EZ".
+// or the whole strings are very close. "Artheget" ~ "Artheget EZ"; "Malacure Forte" != "Artheget EZ".
 export function productNameMatches(onPack: string | null, inRegistry: string | null): boolean | null {
   if (!onPack || !inRegistry) return null;
   const a = nameTokens(onPack);

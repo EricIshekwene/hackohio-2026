@@ -158,7 +158,7 @@ describe('licence holder vs factory (R3) and real inactive registrations (R4)', 
   it('a "marketed by" holder that also differs is RED', () => {
     const p = pack('real-green');
     p.fields.manufacturer.value = 'Acme Contract Manufacturing, Karachi';
-    p.fields.marketedBy = { value: 'Greenlife Pharmaceuticals Ltd', editedByUser: false };
+    p.fields.marketedBy = { value: 'Sunrise Pharma Nig. Ltd', editedByUser: false };
     expect(check(p).reasons[0]).toMatchObject({ rule: 'R3', verdict: 'red' });
   });
 });

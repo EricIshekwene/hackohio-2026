@@ -12,8 +12,8 @@ function ResultPreview() {
   const red = LEGEND.red;
   const rows = [
     ['Reg. no.', 'A4-6238', 'A4-6238', true],
-    ['Product', 'Lonart Forte', 'Artheget EZ', false],
-    ['Maker', 'Greenlife Pharma', 'Getz Pharma', false],
+    ['Product', 'Malacure Forte', 'Artheget EZ', false],
+    ['Maker', 'Sunrise Pharma', 'Getz Pharma', false],
   ] as const;
   return (
     <div aria-hidden="true" className="overflow-hidden rounded-lg border border-line text-foot">

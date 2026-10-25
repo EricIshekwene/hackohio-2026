@@ -38,10 +38,10 @@ const heroReading = (): RawExtraction => ({
   photoStatus: 'ok',
   sidesSeen: [{ photo: 1, side: 'front' }],
   fields: {
-    productName: f('Lonart Forte', 'LONART FORTE Tablets'),
+    productName: f('Malacure Forte', 'MALACURE FORTE Tablets'),
     strength: f('80/480mg'),
     nafdacRegNo: f('A4-62З8', 'NAFDAC Reg. No: A4-62З8', 0.9), // Cyrillic З
-    manufacturer: f('Greenlife Pharmaceuticals Ltd', 'Manufactured by: Greenlife Pharmaceuticals Ltd'),
+    manufacturer: f('Sunrise Pharma Nig. Ltd', 'Manufactured by: Sunrise Pharma Nig. Ltd'),
     batchNo: f('GL22I0', 'B.No: GL22I0', 0.7),
     expiryDate: f('09/2027', 'EXP: 09/2027'),
     activeIngredient: f('Artemether; Lumefantrine'),
@@ -103,8 +103,8 @@ describe('confidence = min(AI estimate, code checks)', () => {
   it('caps when value and printed text disagree', () =>
     expect(toExtractedField('nafdacRegNo', f('A4-6238', 'A4-6288', 0.95)).confidence).toBe(0.6));
   it('allows label words around free text', () => {
-    expect(toExtractedField('manufacturer', f('Greenlife Pharmaceuticals Ltd', 'Manufactured by: Greenlife Pharmaceuticals Ltd')).confidence).toBe(0.95);
-    expect(toExtractedField('productName', f('Lonart Forte', 'LONART FORTE Tablets')).confidence).toBe(0.95);
+    expect(toExtractedField('manufacturer', f('Sunrise Pharma Nig. Ltd', 'Manufactured by: Sunrise Pharma Nig. Ltd')).confidence).toBe(0.95);
+    expect(toExtractedField('productName', f('Malacure Forte', 'MALACURE FORTE Tablets')).confidence).toBe(0.95);
   });
   it('still flags a misspelled brand', () =>
     expect(toExtractedField('productName', f('Artheget', 'ARTHEQET 80/480', 0.9)).confidence).toBe(0.6));

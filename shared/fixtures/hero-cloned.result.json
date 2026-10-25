@@ -17,7 +17,7 @@
       "rule": "R3",
       "verdict": "red",
       "title": "Registration number belongs to a different product",
-      "message": "A4-6238 is registered to Artheget EZ by Getz Pharma Nigeria Limited, but this pack shows product name \"Lonart Forte\" and manufacturer / licence holder \"Greenlife Pharmaceuticals Ltd\". A real number on the wrong product is a common sign of a falsified medicine.",
+      "message": "A4-6238 is registered to Artheget EZ by Getz Pharma Nigeria Limited, but this pack shows product name \"Malacure Forte\" and manufacturer / licence holder \"Sunrise Pharma Nig. Ltd\". A real number on the wrong product is a common sign of a falsified medicine.",
       "evidence": [
         {
           "field": "nafdacRegNo",
@@ -29,14 +29,14 @@
         {
           "field": "productName",
           "label": "Product name",
-          "onPack": "Lonart Forte",
+          "onPack": "Malacure Forte",
           "inRegistry": "Artheget EZ",
           "match": false
         },
         {
           "field": "manufacturer",
           "label": "Manufacturer / licence holder",
-          "onPack": "Greenlife Pharmaceuticals Ltd",
+          "onPack": "Sunrise Pharma Nig. Ltd",
           "inRegistry": "Getz Pharma Nigeria Limited",
           "match": false
         }
@@ -61,7 +61,7 @@
     {
       "field": "productName",
       "label": "Product name",
-      "onPack": "Lonart Forte",
+      "onPack": "Malacure Forte",
       "inRegistry": "Artheget EZ",
       "match": false
     },
@@ -75,7 +75,7 @@
     {
       "field": "manufacturer",
       "label": "Manufacturer / licence holder",
-      "onPack": "Greenlife Pharmaceuticals Ltd",
+      "onPack": "Sunrise Pharma Nig. Ltd",
       "inRegistry": "Getz Pharma Nigeria Limited",
       "match": false
     }

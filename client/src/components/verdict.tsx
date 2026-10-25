@@ -110,7 +110,7 @@ function shortLabel(row: ComparisonRow) {
 // Short values (codes, strengths) read better unbroken.
 const short = (v: string | null) => !!v && v.length <= 14;
 
-function Missing({ text = 'Not on pack' }: { text?: string }) {
+function Missing({ text = 'Not given' }: { text?: string }) {
   return <span className="text-ink-3 italic">{text}</span>;
 }
 

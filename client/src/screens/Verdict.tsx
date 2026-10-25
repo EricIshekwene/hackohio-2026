@@ -23,7 +23,7 @@ function VerdictHeader({ result, productName, compact }: { result: VerificationR
           <h1 id="verdict-headline" className="truncate text-[17px] leading-6 font-semibold text-ink">
             {result.headline}
           </h1>
-          <span className="truncate text-cap">{l.label} · {result.caveat}</span>
+          <span className="text-cap">{l.label} · {result.caveat}</span>
         </span>
         <LegendPopover caveat={result.caveat} className="-my-2.5 -mr-3" />
       </section>

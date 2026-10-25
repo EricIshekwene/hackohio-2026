@@ -145,7 +145,7 @@ export function Confirm({
       step={step}
       onBack={onBack}
       title={source === 'photo' ? 'Check what we read' : 'Type what’s on the pack'}
-      description={source === 'photo' ? `We read these from your ${shown.length > 1 ? 'photos' : 'photo'}. Fix anything that’s wrong.` : 'The NAFDAC number matters most. Fill in what you can see.'}
+      description={source === 'photo' ? (poorRead ? 'Retake the photo, or type what you can see on the pack.' : `We read these from your ${shown.length > 1 ? 'photos' : 'photo'}. Fix anything that’s wrong.`) : 'The NAFDAC number matters most. Fill in what you can see.'}
       className="gap-3"
       footer={
         <>

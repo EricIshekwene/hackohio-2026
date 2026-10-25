@@ -1,43 +1,18 @@
 import { useEffect, useState } from 'react';
-import { Camera, Keyboard } from 'lucide-react';
-import { CAVEAT, LEGEND } from '@shared/legend';
+import { Camera, FileSearch, Keyboard, ListChecks } from 'lucide-react';
+import { CAVEAT } from '@shared/legend';
 import { DEMO_PACKS, getMeta, USE_MOCKS, type DemoPackId, type Meta } from '@/lib/api';
+import { formatDate } from '@/lib/format';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { DataFooter, Shell } from '@/components/app-shell';
+import { Shell } from '@/components/app-shell';
 
-// What the app does, shown with a real comparison instead of clip art: the hero demo pack's two mismatches.
-// Framed as an example below the headline, with no verdict line, so the start screen never reads as a result.
-function ResultPreview() {
-  const red = LEGEND.red;
-  const rows = [
-    ['Reg. no.', 'A4-6238', 'A4-6238', true],
-    ['Product', 'Malacure Forte', 'Artheget EZ', false],
-    ['Maker', 'Sunrise Pharma', 'Getz Pharma', false],
-  ] as const;
-  return (
-    <div aria-hidden="true" className="overflow-hidden rounded-lg border border-line text-foot">
-      <div className="flex items-center justify-between gap-2.5 bg-fill px-3 py-2.5">
-        <span className="text-cap font-medium tracking-[0.02em] text-ink-3 uppercase">Example</span>
-        <span className="text-cap text-ink-2">A cloned NAFDAC number, caught</span>
-      </div>
-      <div>
-        <div className="grid grid-cols-[72px_1fr_1fr] gap-2 border-t border-line px-3 py-2 text-cap text-ink-3">
-          <span>Field</span>
-          <span>On the pack</span>
-          <span>NAFDAC record</span>
-        </div>
-        {rows.map(([f, pack, rec, ok]) => (
-          <div key={f} className="grid grid-cols-[72px_1fr_1fr] gap-2 border-t border-line px-3 py-2.5" style={ok ? undefined : { background: red.background, color: red.text }}>
-            <span className={ok ? 'text-ink-2' : 'font-medium'}>{f}</span>
-            <span className={ok ? '' : 'font-medium'}>{pack}</span>
-            <span className={ok ? '' : 'font-medium'}>{rec}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+// How it works, in the order the user meets it. Black glyphs on a quiet tile; green stays for the brand mark.
+const STEPS = [
+  { icon: Camera, title: 'Photograph the pack', body: '1 to 3 photos, any side.' },
+  { icon: ListChecks, title: 'Confirm what we read', body: 'Nothing is checked until you do.' },
+  { icon: FileSearch, title: 'Checked against NAFDAC', body: 'Registry and alerts, with the evidence.' },
+];
 
 // Demo packs are for the video: always in mock mode, or with ?demo on the real server.
 const SHOW_DEMOS = USE_MOCKS || new URLSearchParams(location.search).has('demo');
@@ -48,10 +23,16 @@ export function Landing({ onStart, onManual, onDemo }: { onStart: () => void; on
     getMeta().then(setMeta).catch(() => setMeta(null));
   }, []);
 
+  // Only what /api/meta actually says; nothing is shown until it answers.
+  const trust = meta && [
+    meta.registry?.total ? `${meta.registry.total.toLocaleString('en-NG')} registered products` : null,
+    `Data as of ${formatDate(meta.dataAsOf.registrySnapshot)}`,
+  ].filter(Boolean);
+
   return (
     <Shell
       trailing={USE_MOCKS && <Badge variant="outline">Demo data</Badge>}
-      className="pt-3"
+      className="gap-6 pt-6"
       footer={
         <>
           <Button block onClick={onStart}>
@@ -62,28 +43,56 @@ export function Landing({ onStart, onManual, onDemo }: { onStart: () => void; on
             <Keyboard strokeWidth={1.75} />
             Type the details
           </Button>
-          {SHOW_DEMOS && (<div className="mt-3 flex flex-col gap-2">
-            <p className="text-cap text-ink-3">Or try a demo pack</p>
-            <div className="grid grid-cols-3 divide-x divide-line overflow-hidden rounded-md shadow-[inset_0_0_0_1px_var(--color-line)]">
-              {DEMO_PACKS.map((p) => (
-                <button key={p.id} type="button" onClick={() => onDemo(p.id)} className="h-11 px-1 text-foot font-medium text-ink hover:bg-fill">
-                  {p.label}
-                </button>
-              ))}
+          {SHOW_DEMOS && (
+            <div className="mt-1 flex items-center">
+              <div aria-label="Demo packs" role="group" className="grid flex-1 grid-cols-3 divide-x divide-line overflow-hidden rounded-md shadow-[inset_0_0_0_1px_var(--color-line)]">
+                {DEMO_PACKS.map((p) => (
+                  <button key={p.id} type="button" onClick={() => onDemo(p.id)} className="h-9 px-1 text-cap font-medium whitespace-nowrap text-ink hover:bg-fill">
+                    {p.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>)}
-          <DataFooter dataAsOf={meta?.dataAsOf} caveat={`${CAVEAT}. MedCheck never says a medicine is genuine or safe.`} className="mt-3" />
+          )}
+          <p className="mt-1 text-center text-[11px] leading-4 text-ink-3">{CAVEAT}. MedCheck never says a medicine is genuine or safe.</p>
         </>
       }
     >
-      <div className="flex flex-col gap-2">
-        <h1 className="text-display font-semibold">Check a medicine pack against NAFDAC records</h1>
-        <p className="text-body text-ink-2">
-          Take a photo of the pack. You confirm what we read, then we check it against the NAFDAC Greenbook and its falsified-medicine alerts.
-        </p>
-        <p className="text-foot text-ink-3">Have the pack in your hand. It takes about a minute.</p>
+      <div className="flex flex-col gap-3">
+        <h1 className="text-[30px] leading-[34px] font-semibold tracking-[-0.03em]">
+          Check a medicine pack <span className="text-ink-3">against NAFDAC’s records.</span>
+        </h1>
+        <p className="text-body text-ink-2">Fakes often copy a real registration number. MedCheck compares the pack with what NAFDAC registered and shows any difference.</p>
       </div>
-      <ResultPreview />
+
+      <ol className="flex flex-col gap-3.5">
+        {STEPS.map(({ icon: Icon, title, body }, i) => (
+          <li key={title} className="flex items-start gap-3.5">
+            <span className="grid size-10 shrink-0 place-items-center rounded-[10px] bg-fill shadow-[inset_0_0_0_1px_var(--color-line)]">
+              <Icon className="size-[18px]" strokeWidth={1.75} aria-hidden="true" />
+            </span>
+            <span className="flex min-w-0 flex-col gap-0.5 pt-px">
+              <span className="text-body font-medium">
+                <span className="tabular text-ink-3">{i + 1}&nbsp;&nbsp;</span>
+                {title}
+              </span>
+              <span className="text-foot text-ink-3">{body}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+
+      <div className="flex min-h-[34px] items-center gap-2 border-t border-line pt-4 text-cap whitespace-nowrap text-ink-3" aria-live="polite">
+        {trust?.map((t, i) => (
+          <span key={t} className="flex items-center gap-2">
+            {i > 0 && <span aria-hidden="true" className="size-[3px] rounded-full bg-ink-3/60" />}
+            <span className={i === 0 ? 'flex items-center gap-1.5 font-medium text-ink-2' : 'tabular'}>
+              {i === 0 && <span aria-hidden="true" className="size-1.5 rounded-full bg-brand" />}
+              {t}
+            </span>
+          </span>
+        ))}
+      </div>
     </Shell>
   );
 }

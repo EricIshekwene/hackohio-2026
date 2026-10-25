@@ -25,7 +25,7 @@ export type DemoPackId = 'hero-cloned' | 'alert-042' | 'real-green';
 
 export const DEMO_PACKS: { id: DemoPackId; label: string; input: StandardizedMedicationInput }[] = [
   { id: 'hero-cloned', label: 'Cloned reg. no.', input: demoPacks['hero-cloned'] as StandardizedMedicationInput },
-  { id: 'alert-042', label: 'On NAFDAC alert', input: demoPacks['alert-042'] as StandardizedMedicationInput },
+  { id: 'alert-042', label: 'On an alert', input: demoPacks['alert-042'] as StandardizedMedicationInput },
   { id: 'real-green', label: 'Registered pack', input: demoPacks['real-green'] as StandardizedMedicationInput },
 ];
 
@@ -126,10 +126,12 @@ export async function extractFromPhotos(photos: Photo[], signal?: AbortSignal): 
 
 export interface Meta {
   dataAsOf: { registrySnapshot: string; lastAlert: string };
+  registry?: { total: number }; // GET /api/meta sends more; the start screen only needs the counts
+  alerts?: { total: number };
 }
 
 export async function getMeta(): Promise<Meta> {
-  if (USE_MOCKS) return { dataAsOf: (heroCloned as VerificationResult).dataAsOf };
+  if (USE_MOCKS) return { dataAsOf: (heroCloned as VerificationResult).dataAsOf, registry: { total: 8943 }, alerts: { total: 1 } };
   return request('/api/meta');
 }
 

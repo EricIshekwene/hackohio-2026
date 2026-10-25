@@ -72,6 +72,7 @@ export function Snap({
   const [flash, setFlash] = useState(false);
   const [announce, setAnnounce] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null); // not an error: e.g. more photos picked than a pack takes
 
   const shot = SHOTS[current];
   const taken = photos.find((p) => p.shot === shot.id);
@@ -93,6 +94,7 @@ export function Snap({
 
   async function shoot() {
     setError(null);
+    setNote(null);
     if (status === 'idle') return start();
     if (!live) return nativeRef.current?.click();
     const blob = await capture();
@@ -105,25 +107,41 @@ export function Snap({
     advance(current, new Set([current]));
   }
 
-  // Upload or camera-app photos fill the current shot first, then the empty ones after it.
+  // Library or camera-app photos fill the selected shot, then the empty ones, in shot order. A shot that's
+  // already taken is never overwritten by a multi-pick; tap it and choose again to replace it.
   async function handleFiles(list: FileList | null) {
-    const files = [...(list ?? [])].slice(0, SHOTS.length);
-    if (!files.length) return;
-    setError(null);
-    const order = [current, ...SHOTS.map((_, i) => i).filter((i) => i !== current && !has(i)), ...SHOTS.map((_, i) => i).filter((i) => i !== current && has(i))];
-    const filled = new Set<number>();
-    for (const [n, file] of files.entries()) {
-      try {
-        const blob = await resizeImage(file);
-        keep(blob, order[n]);
-        filled.add(order[n]);
-      } catch {
-        setError("One of those files isn't a photo we can open. Try another, or type the details.");
-      }
-    }
-    if (filled.size) advance(current, filled);
+    const files = [...(list ?? [])];
     if (nativeRef.current) nativeRef.current.value = '';
     if (uploadRef.current) uploadRef.current.value = '';
+    if (!files.length) return;
+    setError(null);
+    setNote(null);
+    const slots = [current, ...SHOTS.map((_, i) => i).filter((i) => i !== current && !has(i))];
+    const filled = new Set<number>();
+    let unreadable = 0;
+    for (const file of files) {
+      if (filled.size === slots.length) break;
+      try {
+        const blob = await resizeImage(file);
+        const slot = slots[filled.size];
+        keep(blob, slot);
+        filled.add(slot);
+      } catch {
+        unreadable++;
+      }
+    }
+    const extra = files.length - filled.size - unreadable;
+    if (unreadable) setError(`${unreadable === 1 ? "One file isn't a photo" : `${unreadable} files aren't photos`} we can open. Try another, or type the details.`);
+    else if (extra > 0)
+      setNote(
+        slots.length === SHOTS.length
+          ? `A pack takes up to ${SHOTS.length} photos, so we kept the first ${SHOTS.length}.`
+          : `Added ${filled.size}. To swap a photo you already have, tap it, then choose again.`,
+      );
+    if (filled.size) {
+      setAnnounce(`Added ${filled.size} photo${filled.size === 1 ? '' : 's'}: ${[...filled].map((i) => SHOTS[i].label).join(', ')}.`);
+      advance(current, filled);
+    }
   }
 
   // Hardware keyboards and desktop demos: space or enter takes the photo.
@@ -296,6 +314,7 @@ export function Snap({
       <p className="sr-only" aria-live="polite">
         {announce}
       </p>
+      {note && !error && <p className="rounded-md bg-white/10 p-3 text-foot text-white">{note}</p>}
       {error && (
         <p role="alert" className="flex items-start gap-2 rounded-md bg-white/10 p-3 text-foot text-white">
           <X className="mt-px size-4 shrink-0" />

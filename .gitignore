@@ -151,3 +151,9 @@ vite.config.ts.timestamp-*
 # MedCheck
 data/reports.ndjson
 data/raw/
+data/spend.json
+server/testImg/*.jpg
+server/testImg/*.jpeg
+server/testImg/*.png
+server/testImg/*.webp
+server/testImg/*.heic

@@ -4,6 +4,7 @@ import path from 'node:path';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import type { ApiError, ReportRequest } from '../../shared/types';
 import { CAVEAT, LEGEND_LIST } from '../../shared/legend';
+import { extractRouter } from './extract/route';
 import { DATA_DIR, getDataset, type Dataset } from './services/data';
 import { buildReport } from './services/report';
 import { checkMedication } from './services/rules';
@@ -63,7 +64,8 @@ export function createApp(opts: { dataset?: Dataset; now?: () => Date } = {}) {
     res.json(draft);
   });
 
-  // /api/extract is the middleware layer's route (image -> StandardizedMedicationInput); mount it here.
+  // Middleware layer: photo -> StandardizedMedicationInput (see src/extract/).
+  app.use('/api', extractRouter);
   // /api/explain (Claude rewording) is a stretch goal.
 
   // Production: serve the built client from the same origin.

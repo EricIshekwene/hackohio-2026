@@ -19,7 +19,18 @@ npm run fixtures     # rewrite shared/fixtures/*.result.json (mock data for the 
 | POST | `/api/check` | `StandardizedMedicationInput` | `VerificationResult` (400 if malformed, 422 if `confirmedByUser` is false) |
 | POST | `/api/report` | `{ input, result, reporter?, whereBought?, notes? }` | `ReportDraft` (prefilled NAFDAC email + mailto/tel links) |
 
-`/api/extract` (image to JSON) belongs to the middleware layer; mount it in `src/app.ts`. `/api/explain` (Claude rewording, Pidgin) is a stretch goal.
+`/api/explain` (Claude rewording, Pidgin) is a stretch goal.
+
+## Photo reading: `POST /api/extract` (middleware layer, `src/extract/`)
+
+`multipart/form-data` with one photo as `image` (or 1–3 photos of the same pack as `photos`) → `StandardizedMedicationInput` with `source: "photo"`, `confirmedByUser: false`, and per field `value`, `confidence`, `sourceText` (exactly what was printed) and `notes` (why confidence is low). Optional fields are only included when found. An extra `extraction` key (photoStatus, sidesSeen, model, cost) is ignored by `/api/check`.
+
+- Photos are rotated, stripped of all metadata (GPS), resized to 1568 px and never stored.
+- Claude Opus 5.5 transcribes; it never decides anything. Confidence = min(AI's estimate, code checks: reg-no shape, expiry parses, strength has a unit, characters swapped, value vs printed text).
+- Status codes match the client: `404` key not set · `422` couldn't read / not medicine / several packs · `429` spend limit reached · `503` AI unavailable · `400`/`413` bad or too-large file.
+- `GET /api/extract/status` → `{ enabled, model, spendUsd, spendLimitUsd }`. Spend is tracked in `data/spend.json` (gitignored).
+
+Setup: copy the key to the clipboard, then `powershell -ExecutionPolicy Bypass -File scripts/set-key.ps1` (writes `.env`, never prints the key). Accuracy test: put photos + `expected.json` (see `testImg/expected.example.json`) in `testImg/`, then `npm run eval` (dry run) / `npm run eval -- --yes` (~$0.025 per photo).
 Types live in `shared/types.ts`, the legend in `shared/legend.ts`.
 
 ## Rules (worst colour wins, every rule that fired is listed)

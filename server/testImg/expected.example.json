@@ -1,0 +1,12 @@
+{
+  "tylenol": {
+    "photos": ["tylenol-front.jpg", "tylenol-side.jpg"],
+    "productName": "Tylenol",
+    "strength": "500 mg",
+    "nafdacRegNo": null,
+    "manufacturer": "Kenvue",
+    "batchNo": "XYZ123",
+    "expiryDate": "05/2027",
+    "activeIngredient": "acetaminophen"
+  }
+}

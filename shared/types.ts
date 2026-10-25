@@ -8,6 +8,7 @@ export interface ExtractedField {
   value: string | null;
   confidence?: number; // 0-1, photo path only
   sourceText?: string; // the text the AI read
+  notes?: string[]; // photo path only: why confidence is low, e.g. "changed letter O to digit 0"
   editedByUser: boolean;
 }
 

@@ -59,20 +59,3 @@ export const LEGEND: Record<Verdict, LegendEntry> = {
 export const VERDICT_ORDER: Verdict[] = ['red', 'amber', 'unsure', 'green'];
 
 export const LEGEND_LIST: LegendEntry[] = VERDICT_ORDER.map((v) => LEGEND[v]);
-
-// App theme (decided 2026-10-25): black-and-white base, green only as a MedCheck accent.
-// Verdict colours above appear ONLY on the verdict card, verdict badges and reason-card edges.
-// The brand green is the olive Fern from the MedCheck palette, a different shade from the GREEN verdict
-// (#2E7D32), and is never used on the verdict screen's buttons, so "MedCheck green" can't read as "this pack passed".
-export const THEME = {
-  background: '#FFFFFF',
-  surface: '#FAFAFA', // cards, inputs
-  border: '#E5E5E5',
-  ink: '#0A0A0A', // body text, primary buttons (black)
-  muted: '#6B6B6B', // secondary text
-  brand: '#477023', // MedCheck accent (Fern): links, focus rings, active step, "AI" badge outline
-  brandDeep: '#0D330E', // logo wordmark only (Pakistan Green)
-  brandTint: '#EEF3E9', // subtle brand highlight (selected field, progress)
-  onBrand: '#FFFFFF',
-  danger: '#D32F2F', // form errors only (same hue as RED verdict)
-} as const;

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { SCENES, type Scene } from '../manifest.ts';
 import { FPS, OUT, PHONE } from '../lib/config.ts';
 import { launch, newSession, Recorder } from '../lib/recorder.ts';
-import { photoPath } from '../lib/content.ts';
+import { cameraFile } from '../lib/camera.ts';
 import { contactSheet, encodeToBudget, mp4Args, poster, probe, webmArgs } from '../lib/encode.ts';
 import { ensureApp } from '../lib/app.ts';
 
@@ -14,17 +14,8 @@ const only = args.filter((a) => !a.startsWith('--'));
 const reencode = args.includes('--reencode');
 const DPR = Number(process.env.MEDIA_VIDEO_DPR ?? 3);
 
-// A still photo becomes Chromium's camera: a short y4m loop, portrait like a phone's back camera.
-function cameraFile(scene: Scene, dir: string): string | undefined {
-  const photo = scene.pack().photos[0];
-  if (!photo) return undefined;
-  const out = path.join(dir, 'camera.y4m');
-  execFileSync('ffmpeg', ['-y', '-v', 'error', '-loop', '1', '-i', photoPath(photo), '-t', '1', '-r', '5', '-vf', 'scale=1080:1440:force_original_aspect_ratio=increase,crop=1080:1440', '-pix_fmt', 'yuv420p', out]);
-  return out;
-}
-
 async function record(scene: Scene, dir: string) {
-  const camera = cameraFile(scene, dir);
+  const camera = cameraFile(scene.pack(), dir);
   const browser = await launch(camera);
   const pack = scene.pack();
   const opts = { device: { width: PHONE.width, height: PHONE.height, dpr: DPR, mobile: true }, pack, camera };

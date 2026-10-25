@@ -1,6 +1,6 @@
 import type { Page } from 'playwright';
 import type { FieldKey } from '../../../shared/types.ts';
-import type { Pack } from '../lib/content.ts';
+import { photoPath, type Pack } from '../lib/content.ts';
 import type { Recorder } from '../lib/recorder.ts';
 
 // Storyboard building blocks. Only real accessible names; a missing control fails the render.
@@ -60,7 +60,8 @@ export async function showTab(rec: Recorder, name: 'Compare' | 'Why' | 'Checked'
   await rec.hold(holdMs);
 }
 
-// Landing -> Scan a pack -> camera (playing the pack photo) -> shutter per photo -> Read pack -> Confirm.
+// Landing -> Scan a pack -> camera (playing the pack's first photo) -> shutter -> any other photos added
+// from the library (the real "+" slot) -> Read pack -> review low-confidence rows -> Confirm.
 export async function photoCheck(rec: Recorder, pack: Pack) {
   const page = rec.page;
   await rec.tap(page.getByRole('button', { name: 'Scan a pack' }), 'Scan a pack');
@@ -72,6 +73,14 @@ export async function photoCheck(rec: Recorder, pack: Pack) {
   await rec.tap(page.getByRole('button', { name: 'Take photo' }), 'shutter');
   await rec.waitFor(page.getByRole('button', { name: 'View photo 1' }), 'first photo');
   await rec.hold(700);
+  for (const extra of pack.photos.slice(1)) {
+    const n = pack.photos.indexOf(extra) + 1;
+    const chooser = page.waitForEvent('filechooser');
+    await rec.tap(page.getByRole('button', { name: 'Add from your photos' }), 'add photo');
+    await (await chooser).setFiles(photoPath(extra));
+    await rec.waitFor(page.getByRole('button', { name: `View photo ${n}` }), `photo ${n}`);
+    await rec.hold(600);
+  }
   rec.mark('snapped');
   await rec.tap(page.getByRole('button', { name: /Read pack/ }).last(), 'Read pack');
   await rec.waitFor(page.getByRole('heading', { name: 'Reading the label' }), 'reading');
@@ -79,5 +88,15 @@ export async function photoCheck(rec: Recorder, pack: Pack) {
   await rec.waitFor(page.getByText('These details match the pack'), 'confirm', 12000);
   await rec.hold(1800);
   rec.mark('confirm');
+  await reviewLowConfidence(rec);
   await confirmAndCheck(rec);
+}
+
+// Rows the reader wasn't sure of must be looked at before the attestation unlocks.
+export async function reviewLowConfidence(rec: Recorder) {
+  const looks = rec.page.getByRole('button', { name: 'Looks right' });
+  while ((await looks.count()) > 0) {
+    await rec.tap(looks.first(), 'Looks right');
+    await rec.hold(500);
+  }
 }

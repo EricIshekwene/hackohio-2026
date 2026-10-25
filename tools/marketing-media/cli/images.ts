@@ -42,8 +42,8 @@ interface ImageSpec {
   html: () => string;
 }
 
-const hasPhoto = fs.existsSync(SHOTS) && fs.readdirSync(SHOTS).some((n) => n.startsWith('S17-'));
-const greenHero = () => shot(hasPhoto ? 'S17' : 'S08');
+const hasPhoto = fs.existsSync(SHOTS) && fs.readdirSync(SHOTS).some((n) => n.startsWith('S18-'));
+const greenHero = () => shot('S08');
 
 const SPECS: ImageSpec[] = [
   {
@@ -73,14 +73,14 @@ const SPECS: ImageSpec[] = [
   {
     id: 'I03',
     slug: 'three-phones',
-    caption: 'Transparent composite: landing, confirm/typed form, green result. Drop on any slide.',
+    caption: hasPhoto ? 'Transparent composite: landing, the camera on a real Natrilix SR pack, a green result. Drop on any slide.' : 'Transparent composite: landing, typed form, green result. Drop on any slide.',
     w: 2400,
     h: 1500,
     transparent: true,
     html: () =>
       page(2400, 1500, 'transparent', `
         ${phone(shot('S01'), 520, `left:250px;top:180px`)}
-        ${phone(shot(hasPhoto ? 'S05' : 'S06'), 520, `left:930px;top:120px`)}
+        ${phone(shot(hasPhoto ? 'S02' : 'S06'), 520, `left:930px;top:120px`)}
         ${phone(greenHero(), 520, `left:1610px;top:180px`)}`),
   },
   {
@@ -103,7 +103,24 @@ const SPECS: ImageSpec[] = [
     h: 630,
     html: () => page(1200, 630, BRAND.fill, `${phone(greenHero(), 300, `left:760px;top:70px`)}`),
   },
-  ...(['S01', 'S08', 'S11', 'S13', 'S15', ...(hasPhoto ? ['S02', 'S05', 'S17'] : ['S06'])] as const).map(
+  ...(hasPhoto
+    ? [
+        {
+          id: 'I06',
+          slug: 'real-pack-natrilix',
+          caption: 'Transparent composite: a real Natrilix SR pack. Three photos, the user checks two unsure details, and MedCheck flags it.',
+          w: 2400,
+          h: 1500,
+          transparent: true,
+          html: () =>
+            page(2400, 1500, 'transparent', `
+        ${phone(shot('S18'), 520, `left:250px;top:180px`)}
+        ${phone(shot('S19'), 520, `left:930px;top:120px`)}
+        ${phone(shot('S20'), 520, `left:1610px;top:180px`)}`),
+        } satisfies ImageSpec,
+      ]
+    : []),
+  ...(['S01', 'S08', 'S11', 'S13', 'S15', ...(hasPhoto ? ['S02', 'S18', 'S19', 'S20'] : ['S06'])] as const).map(
     (id): ImageSpec => ({
       id: `I1${id.slice(1)}`,
       slug: `phone-frame-${id.toLowerCase()}`,

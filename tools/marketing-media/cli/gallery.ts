@@ -63,9 +63,10 @@ if (fs.existsSync(imagesJson)) {
 }
 
 const packs = loadPacks();
-const photos = packs.flatMap((p) => p.photos.map((ph) => ({ pack: p.title, ...ph })));
+const used = new Set(SCENES.map((s) => s.pack().id));
+const photos = packs.filter((p) => used.has(p.id)).flatMap((p) => p.photos.map((ph) => ({ pack: p.title, ...ph })));
 
-const VERDICT: Record<string, string> = { green: 'No problems found', red: 'Caught: do not use', amber: 'Check before use', unsure: "Couldn't check" };
+const VERDICT: Record<string, string> = { green: 'No problems found', red: 'Caught: do not use', amber: 'Flagged: check before use', unsure: "Couldn't check" };
 
 function card(it: Item) {
   const media =
@@ -98,16 +99,16 @@ const html = `<title>MedCheck Media Library</title>
 /* Layout: a contact-sheet of the real app. Phone-shaped cards in a grid, MedCheck's own black-and-white UI with the green accent kept to the brand mark. */
 :root {
   --bg: #ffffff; --fill: #f5f5f3; --ink: #0a0c0a; --ink-2: #52574f; --ink-3: #686d65; --line: #e7e8e5; --brand: #0d330e;
-  --green-bg: #e8f5e9; --green-fg: #1b5e20; --red-bg: #fdecea; --red-fg: #8e1b1b; --check: #ececea;
+  --green-bg: #e8f5e9; --green-fg: #1b5e20; --red-bg: #fdecea; --red-fg: #8e1b1b; --amber-bg: #fef3c7; --amber-fg: #92400e; --check: #ececea;
   --sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #0b0d0b; --fill: #151815; --ink: #f2f3f0; --ink-2: #b4b8b0; --ink-3: #8d9289; --line: #262a25; --brand: #7fb882;
-  --green-bg: #12301a; --green-fg: #a5d6a7; --red-bg: #3a1514; --red-fg: #f4b4ae; --check: #1d201c; color-scheme: dark } }
+  --green-bg: #12301a; --green-fg: #a5d6a7; --red-bg: #3a1514; --red-fg: #f4b4ae; --amber-bg: #3a2a0c; --amber-fg: #fcd68a; --check: #1d201c; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #0b0d0b; --fill: #151815; --ink: #f2f3f0; --ink-2: #b4b8b0; --ink-3: #8d9289; --line: #262a25; --brand: #7fb882;
-  --green-bg: #12301a; --green-fg: #a5d6a7; --red-bg: #3a1514; --red-fg: #f4b4ae; --check: #1d201c; color-scheme: dark }
+  --green-bg: #12301a; --green-fg: #a5d6a7; --red-bg: #3a1514; --red-fg: #f4b4ae; --amber-bg: #3a2a0c; --amber-fg: #fcd68a; --check: #1d201c; color-scheme: dark }
 * { box-sizing: border-box }
 body { background: var(--bg); color: var(--ink); font: 15px/22px var(--sans); -webkit-font-smoothing: antialiased; margin: 0;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 64px }
@@ -138,6 +139,7 @@ section { display: flex; flex-direction: column; gap: 16px }
 .chip { font-size: 12px; line-height: 16px; font-weight: 500; padding: 2px 8px; border-radius: 999px }
 .v-green { background: var(--green-bg); color: var(--green-fg) }
 .v-red { background: var(--red-bg); color: var(--red-fg) }
+.v-amber { background: var(--amber-bg); color: var(--amber-fg) }
 h3 { font-size: 15px; line-height: 20px; margin: 0; font-weight: 600; text-wrap: balance }
 .body p { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 18px }
 .body p.meta { color: var(--ink-3); font-variant-numeric: tabular-nums }
@@ -170,8 +172,8 @@ h3 { font-size: 15px; line-height: 20px; margin: 0; font-weight: 600; text-wrap:
     <div class="notes">
       <div class="note"><h3>Keep the caveat visible</h3><p>Every result says "Not proof of authenticity". Don't crop it out, and don't describe a green result as "genuine" or "safe".</p></div>
       <div class="note"><h3>Photo reading in these clips</h3><p>The build machine has no AI key, so the "Reading the label" step answers with a person's transcription of the pack in the exact shape the AI returns. The check and the verdict after it are fully real.</p></div>
-      <div class="note"><h3>The catches</h3><ul><li><b>Cloned number</b>: a demo pack (Malacure Forte) carrying Artheget EZ's real NAFDAC number A4-6238.</li><li><b>Alert 042/2026</b>: every detail comes from NAFDAC's real public alert of 19 Aug 2026.</li></ul></div>
-      ${photos.length ? `<div class="note"><h3>Pack photos and licences</h3><ul>${photos.map((p) => `<li>${esc(p.title)}: ${esc(p.author)}, ${esc(p.licence)} (<a href="${p.sourceUrl}" target="_blank" rel="noopener">source</a>)</li>`).join('')}</ul></div>` : `<div class="note"><h3>Real pack photos</h3><p>Not added yet: the photo-path video and screenshots appear here once real, licensed pack photos are in <code>content/photos/</code>.</p></div>`}
+      <div class="note"><h3>The catches</h3><ul><li><b>Cloned number</b>: a demo pack (Malacure Forte) carrying Artheget EZ's real NAFDAC number A4-6238.</li><li><b>Alert 042/2026</b>: every detail comes from NAFDAC's real public alert of 19 Aug 2026.</li><li><b>Natrilix SR</b>: a real pack from Eric's three photos. The amber result (expired 08/2025, registration Inactive, maker differs) is exactly what the backend returned.</li></ul></div>
+      ${photos.length ? `<div class="note"><h3>Pack photos and licences</h3><ul>${photos.map((p) => `<li>${esc(p.title)}: ${esc(p.author)}${p.sourceUrl ? ` (<a href="${p.sourceUrl}" target="_blank" rel="noopener">source</a>)` : ''}</li>`).join('')}</ul></div>` : `<div class="note"><h3>Real pack photos</h3><p>Not added yet: the photo-path video and screenshots appear here once real, licensed pack photos are in <code>content/photos/</code>.</p></div>`}
     </div>
   </section>
 </div>

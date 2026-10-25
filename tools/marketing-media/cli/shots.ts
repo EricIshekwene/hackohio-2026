@@ -5,8 +5,9 @@ import path from 'node:path';
 import { DESKTOP, OUT, PHONE } from '../lib/config.ts';
 import { launch, newSession, Recorder, type Device } from '../lib/recorder.ts';
 import { getPack, photoPath, type Pack } from '../lib/content.ts';
+import { cameraFile } from '../lib/camera.ts';
 import { ensureApp } from '../lib/app.ts';
-import { confirmAndCheck, landingReady, openLanding, showTab, typedCheck } from '../scenes/flows.ts';
+import { landingReady, openLanding, reviewLowConfidence, showTab, typedCheck } from '../scenes/flows.ts';
 
 // npm run media:shots [-- S01 S08]
 // Every still is the real app at a real state; verdict stills come from the real /api/check.
@@ -35,17 +36,9 @@ const records: ShotRecord[] = [];
 const phone: Device = { width: PHONE.width, height: PHONE.height, dpr: PHONE.dpr, mobile: true };
 const desktop: Device = { width: DESKTOP.width, height: DESKTOP.height, dpr: DESKTOP.dpr, mobile: false };
 
-function cameraFor(pack?: Pack) {
-  const photo = pack?.photos[0];
-  if (!photo) return undefined;
-  const out = path.join(os.tmpdir(), `mm-camera-${pack!.id}.y4m`);
-  execFileSync('ffmpeg', ['-y', '-v', 'error', '-loop', '1', '-i', photoPath(photo), '-t', '1', '-r', '5', '-vf', 'scale=1080:1440:force_original_aspect_ratio=increase,crop=1080:1440', '-pix_fmt', 'yuv420p', out]);
-  return out;
-}
-
 // One browser session walks a flow; `shoot` saves a still at each state worth showing.
 async function session(device: Device, pack: Pack | undefined, walk: (rec: Recorder, shoot: (id: string, slug: string, caption: string) => Promise<void>) => Promise<void>) {
-  const camera = cameraFor(pack);
+  const camera = cameraFile(pack);
   const browser = await launch(camera);
   const opts = { device, pack, camera, stills: true, readMs: 2600 };
   const { page } = await newSession(browser, opts);
@@ -134,40 +127,49 @@ await session(phone, alert, async (rec, shoot) => {
   await shoot('S14', 'caught-alert-why', 'Why: NAFDAC seized this batch in Kano, with the alert linked');
 });
 
-// The photo path, with a real pack photo playing as the camera.
-let photoPack: Pack | undefined;
-try {
-  photoPack = getPack('photo-green');
-} catch {
-  console.warn('S02–S05 skipped: no "photo-green" pack with photos in content/packs.json yet');
-}
-if (photoPack?.photos.length) {
-  const p = photoPack;
-  await session(phone, p, async (rec, shoot) => {
-    const page = rec.page;
-    await openLanding(rec);
-    await rec.tap(page.getByRole('button', { name: 'Scan a pack' }));
-    const allow = page.getByRole('button', { name: 'Allow camera' });
-    if (await allow.isVisible().catch(() => false)) await rec.tap(allow);
-    await rec.waitFor(page.getByText(/Photo 1 of up to/), 'camera');
-    await rec.hold(1200);
-    await shoot('S02', 'camera', 'Point the camera at the pack');
-    await rec.tap(page.getByRole('button', { name: 'Take photo' }));
-    await rec.waitFor(page.getByRole('button', { name: 'View photo 1' }), 'photo');
-    await rec.hold(800);
-    await shoot('S03', 'photo-taken', 'One to three photos, any side of the pack');
-    await rec.tap(page.getByRole('button', { name: /Read pack/ }).last());
-    await rec.waitFor(page.getByRole('heading', { name: 'Reading the label' }), 'reading');
-    await rec.hold(1400);
-    await shoot('S04', 'reading', 'The AI only reads the text');
-    await rec.waitFor(page.getByText('These details match the pack'), 'confirm', 12000);
-    await rec.hold(800);
-    await shoot('S05', 'confirm', 'You check every detail before anything is sent');
-    await confirmAndCheck(rec);
-    await rec.hold(800);
-    await shoot('S17', 'photo-green-compare', 'A real pack, photographed and checked: no problems found');
-  });
-}
+// The photo path: a real Natrilix SR pack, front photo playing as the camera, back and end flap added from
+// the library, two low-confidence rows reviewed, and the flagged result.
+const natrilix = getPack('photo-natrilix');
+await session(phone, natrilix, async (rec, shoot) => {
+  const page = rec.page;
+  await openLanding(rec);
+  await rec.tap(page.getByRole('button', { name: 'Scan a pack' }));
+  const allow = page.getByRole('button', { name: 'Allow camera' });
+  if (await allow.isVisible().catch(() => false)) await rec.tap(allow);
+  await rec.waitFor(page.getByText(/Photo 1 of up to/), 'camera');
+  await rec.hold(1200);
+  await shoot('S02', 'camera', 'The camera on a real Natrilix SR pack');
+  await rec.tap(page.getByRole('button', { name: 'Take photo' }));
+  await rec.waitFor(page.getByRole('button', { name: 'View photo 1' }), 'photo');
+  await rec.hold(800);
+  await shoot('S03', 'photo-taken', 'First photo taken; up to three, any side of the pack');
+  for (const extra of natrilix.photos.slice(1)) {
+    const n = natrilix.photos.indexOf(extra) + 1;
+    const chooser = page.waitForEvent('filechooser');
+    await rec.tap(page.getByRole('button', { name: 'Add from your photos' }));
+    await (await chooser).setFiles(photoPath(extra));
+    await rec.waitFor(page.getByRole('button', { name: `View photo ${n}` }), `photo ${n}`);
+  }
+  await rec.hold(800);
+  await shoot('S18', 'three-photos', 'Three photos of the pack: front, back, end flap');
+  await rec.tap(page.getByRole('button', { name: /Read pack/ }).last());
+  await rec.waitFor(page.getByRole('heading', { name: 'Reading the label' }), 'reading');
+  await rec.hold(1400);
+  await shoot('S04', 'reading', 'The AI only reads the text');
+  await rec.waitFor(page.getByText('These details match the pack'), 'confirm', 12000);
+  await rec.hold(800);
+  await shoot('S19', 'review-unsure', 'Two details the reader was unsure of, waiting for the user to check them');
+  await reviewLowConfidence(rec);
+  await rec.tap(page.getByText('These details match the pack'));
+  await rec.hold(500);
+  await shoot('S05', 'confirm', 'Every detail checked by the user before anything is sent');
+  await rec.tap(page.getByRole('button', { name: 'Check with NAFDAC' }));
+  await rec.waitFor(page.getByRole('tab', { name: /Compare/ }), 'verdict');
+  await rec.hold(800);
+  await shoot('S20', 'flagged-natrilix-compare', 'Flagged: expired pack, inactive registration, maker differs from the registered holder');
+  await showTab(rec, 'Why', 600);
+  await shoot('S21', 'flagged-natrilix-why', 'Why: three reasons, each with its NAFDAC source');
+});
 
 // Desktop: the same app in a laptop browser.
 await session(desktop, cloned, async (rec, shoot) => {

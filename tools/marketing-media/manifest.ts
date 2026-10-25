@@ -26,30 +26,6 @@ const MB = 1024 * 1024;
 
 export const SCENES: Scene[] = [
   {
-    id: 'V01',
-    slug: 'photo-green',
-    title: 'Photo to verdict: a registered pack comes back clean',
-    story: 'Photograph a real Nigerian medicine pack, confirm what was read, and get "No problems found" with the caveat.',
-    pri: 'P1',
-    pack: () => getPack('photo-green'),
-    async run(rec) {
-      await openLanding(rec);
-      await rec.hold(1500);
-      rec.mark('start-landing');
-      await photoCheck(rec, this.pack());
-      await rec.hold(3200);
-      rec.mark('verdict-read');
-      await showTab(rec, 'Why', 2400);
-      await showTab(rec, 'Checked', 2400);
-      rec.mark('end-hold');
-    },
-    clips: [
-      { name: 'scan', caption: 'Point the camera at the pack and take a photo', from: 'start-landing', to: 'reading', poster: 'camera', budget: 1.5 * MB },
-      { name: 'confirm', caption: 'You check every detail the AI read', from: 'reading', to: 'checking', poster: 'confirm', budget: 1.5 * MB },
-      { name: 'result', caption: 'No problems found, never "genuine"', from: 'checking', to: 'verdict-read', poster: 'verdict-read', budget: 1.5 * MB },
-    ],
-  },
-  {
     id: 'V02',
     slug: 'typed-green',
     title: 'Type the details: a registered pack comes back clean',
@@ -110,5 +86,28 @@ export const SCENES: Scene[] = [
       rec.mark('end-hold');
     },
     clips: [{ name: 'result', caption: 'MedCheck matched the batch to NAFDAC Alert 042/2026', from: 'checking', to: 'end', poster: 'verdict-read', budget: 1.5 * MB }],
+  },
+  {
+    id: 'V05',
+    slug: 'photo-natrilix',
+    title: 'Three photos of a real pack: Natrilix SR flagged',
+    story: 'Front, back and end flap of a real Natrilix SR pack. The user confirms the two details the reader was unsure of, and MedCheck flags it: expired in Aug 2025, NAFDAC lists 04-8509 as Inactive, and the maker differs from the registered holder.',
+    pri: 'P1',
+    pack: () => getPack('photo-natrilix'),
+    async run(rec) {
+      await openLanding(rec);
+      await rec.hold(1200);
+      rec.mark('start-landing');
+      await photoCheck(rec, this.pack());
+      await rec.hold(3500);
+      rec.mark('verdict-read');
+      await showTab(rec, 'Why', 3400);
+      rec.mark('end-hold');
+    },
+    clips: [
+      { name: 'photos', caption: 'One to three photos, any side of the pack', from: 'start-landing', to: 'reading', poster: 'snapped', budget: 1.5 * MB },
+      { name: 'confirm', caption: 'The user confirms the details the reader was unsure of', from: 'reading', to: 'checking', poster: 'confirm', budget: 1.5 * MB },
+      { name: 'result', caption: 'MedCheck flagged an expired pack with an inactive registration', from: 'checking', to: 'end', poster: 'verdict-read', budget: 1.5 * MB },
+    ],
   },
 ];

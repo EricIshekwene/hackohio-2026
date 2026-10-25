@@ -161,6 +161,9 @@ export class Recorder {
       },
       rip && this.tapAt ? [this.tapAt.x, this.tapAt.y, rip.radius, rip.opacity] : [0, 0, 0, 0],
     );
+    // A lazy screen's first paint can be an empty page for a few frames; never capture a route load.
+    const blank = await this.page.evaluate(() => (document.body.innerText || '').trim().length < 4);
+    if (blank) return;
     if (this.opts.stills) {
       this.frame += 1;
       return;

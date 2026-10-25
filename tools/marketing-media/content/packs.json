@@ -48,6 +48,86 @@
         "expiryDate": "09/2027"
       },
       "provenance": "Every value is from NAFDAC Public Alert No. 042/2026 (19 Aug 2026)."
+    },
+    {
+      "id": "photo-aquamal",
+      "title": "AquaMal QS, photographed",
+      "story": "A real AquaMal QS pack photographed in the app. MedCheck finds a product listing for B4-0910 but no current NAFDAC registration in its snapshot, so it says check with a pharmacist instead of overclaiming.",
+      "expect": "amber",
+      "photos": [
+        {
+          "file": "aquamal-qs-front.png",
+          "side": "front",
+          "title": "AquaMal QS 80/480 pack, front",
+          "author": "Supplied by Eric (MedCheck team)",
+          "licence": "Supplied by the team for this project",
+          "sourceUrl": ""
+        }
+      ],
+      "printed": {
+        "productName": "AquaMal QS",
+        "strength": "80/480",
+        "nafdacRegNo": "B4-0910",
+        "activeIngredient": "Artemether and Lumefantrine"
+      },
+      "confidence": {
+        "productName": 0.97,
+        "strength": 0.93,
+        "nafdacRegNo": 0.95,
+        "activeIngredient": 0.96
+      },
+      "provenance": "Transcribed from the photo Eric supplied (front panel only: name, strength, ingredients, NAFDAC Reg. No. B4-0910). Manufacturer, batch and expiry are not visible on that side, so they are left empty."
+    },
+    {
+      "id": "photo-natrilix",
+      "title": "Natrilix SR, three photos",
+      "story": "Three photos of a real Natrilix SR pack. MedCheck flags it: the pack expired in Aug 2025, NAFDAC lists 04-8509 as Inactive, and the maker on the pack differs from the registered holder.",
+      "expect": "amber",
+      "photos": [
+        {
+          "file": "natrilix-sr-front.png",
+          "side": "front",
+          "title": "Natrilix SR 1.5 mg pack, front",
+          "author": "Supplied by Eric (MedCheck team)",
+          "licence": "Supplied by the team for this project",
+          "sourceUrl": ""
+        },
+        {
+          "file": "natrilix-sr-back.png",
+          "side": "back",
+          "title": "Natrilix SR pack, back with NAFDAC Reg No",
+          "author": "Supplied by Eric (MedCheck team)",
+          "licence": "Supplied by the team for this project",
+          "sourceUrl": ""
+        },
+        {
+          "file": "natrilix-sr-side.png",
+          "side": "side",
+          "title": "Natrilix SR pack, end flap with batch and dates",
+          "author": "Supplied by Eric (MedCheck team)",
+          "licence": "Supplied by the team for this project",
+          "sourceUrl": ""
+        }
+      ],
+      "printed": {
+        "productName": "Natrilix SR",
+        "strength": "1.5 mg",
+        "nafdacRegNo": "04-8509",
+        "manufacturer": "Servier Egypt Industries Limited",
+        "batchNo": "32417",
+        "expiryDate": "08/2025",
+        "activeIngredient": "Indapamide"
+      },
+      "confidence": {
+        "productName": 0.98,
+        "strength": 0.96,
+        "nafdacRegNo": 0.93,
+        "manufacturer": 0.95,
+        "batchNo": 0.72,
+        "expiryDate": 0.74,
+        "activeIngredient": 0.97
+      },
+      "provenance": "Transcribed from Eric's three photos. Front: Natrilix SR, Indapamide 1.5 mg. Back: Servier Egypt Industries Limited, NAFDAC Reg No 04-8509. End flap (partly under a sticker): batch 32417, MFD 3/2023, EXP 8/2025; batch and expiry are a best reading, so the stand-in marks them below 0.8 and the user confirms them."
     }
   ]
 }

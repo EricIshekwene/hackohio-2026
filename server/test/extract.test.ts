@@ -121,6 +121,16 @@ describe('confidence = min(AI estimate, code checks)', () => {
     it('reg no with a space', () =>
       expect(toExtractedField('nafdacRegNo', f('A4-6238', 'NAFDAC REG NO. A4 6238', 0.95)).confidence).toBe(0.95));
   });
+  describe('reg no. and batch must be near-certain to skip the highlight', () => {
+    it('0.80 on a reg no. (tester A: shrunk V09 read 04-8927 for 04-9927) is highlighted', () => {
+      const x = toExtractedField('nafdacRegNo', f('04-8927', 'NAFDAC Reg. No.: 04-8927', 0.8));
+      expect(x.confidence).toBeLessThan(0.8);
+      expect(x.notes?.join()).toMatch(/every character/);
+    });
+    it('0.85 on a batch is highlighted', () => expect(toExtractedField('batchNo', f('BP5203', 'B.No: BP5203', 0.85)).confidence).toBeLessThan(0.8));
+    it('0.9+ stays as the AI said', () => expect(toExtractedField('nafdacRegNo', f('04-9927', 'NAFDAC Reg. No.: 04-9927', 0.92)).confidence).toBe(0.92));
+    it('other fields keep 0.8–0.9 unhighlighted', () => expect(toExtractedField('productName', f('Lonart DS', 'Lonart DS', 0.85)).confidence).toBe(0.85));
+  });
   describe('still flags real disagreements', () => {
     it('strength number not on the pack (5 mg vs 0.5 mg)', () =>
       expect(toExtractedField('strength', f('5 mg', 'Glibenclamide 0.5 mg Tablets', 0.95)).confidence).toBe(0.6));

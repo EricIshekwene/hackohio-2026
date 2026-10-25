@@ -190,6 +190,10 @@ export function appearsIn(key: ExtractKey, value: string, printed: string): bool
   }
 }
 
+const CRITICAL = new Set<ExtractKey>(['nafdacRegNo', 'batchNo']);
+const CRITICAL_SURE = 0.9;
+const CLIENT_HIGHLIGHT_BELOW = 0.8; // client/src/lib/fields.ts LOW_CONFIDENCE
+
 /** confidence = min(AI's own estimate, code checks). */
 export function toExtractedField(
   key: ExtractKey,
@@ -215,6 +219,12 @@ export function toExtractedField(
   if (raw.photosDisagree) {
     confidence = Math.min(confidence, 0.3);
     notes.push('photos disagree on this field');
+  }
+  // The reg no. and batch decide the verdict, and one wrong digit flips it (a shrunk photo read 04-9927 as
+  // 04-8927 at 0.80, just above the client's 0.8 highlight line). Anything short of near-certain gets highlighted.
+  if (CRITICAL.has(key) && c.value !== null && confidence < CRITICAL_SURE && confidence >= CLIENT_HIGHLIGHT_BELOW) {
+    confidence = CLIENT_HIGHLIGHT_BELOW - 0.01;
+    notes.push('check every character of this number against the pack');
   }
   const field: ExtractedField = { value: c.value, confidence: Math.round(confidence * 100) / 100, editedByUser: false };
   if (raw.readText) field.sourceText = raw.readText;

@@ -1,0 +1,75 @@
+@import "tailwindcss";
+@import "@fontsource-variable/bricolage-grotesque/opsz.css";
+
+/* Brand: Eric's dark greens with white. Verdict colours are NOT tokens here; they come from
+   result.legend at runtime (see VerdictCard) so the backend stays the single source. */
+@theme {
+  --font-sans: "Bricolage Grotesque Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-deep: #071e07; /* Dark Green: bands, landing */
+  --color-primary: #0d330e; /* Pakistan Green: primary buttons */
+  --color-moss: #2d531a; /* Dark Moss: links, AI badge */
+  --color-fern: #477023; /* Fern: focus, done steps */
+  --color-reseda: #6e8649; /* Reseda: accents, large text only */
+  --color-mist: #e4ece0; /* soft fills */
+  --color-paper: #f3f6f0; /* app background */
+  --color-ink: #0b1f0c;
+  --color-muted: #4f604b;
+  --color-line: #d6dfd0;
+  --color-sprout: #a9c98a; /* highlight on dark */
+  --color-on-deep-muted: #b7c8ae;
+
+  --radius-card: 12px;
+  --radius-verdict: 16px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    background: var(--color-deep);
+  }
+  body {
+    margin: 0;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+    font-variation-settings: "opsz" 14;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 {
+    text-wrap: balance;
+    font-variation-settings: "opsz" 72;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-fern);
+    outline-offset: 2px;
+  }
+  button, input, textarea { font: inherit; color: inherit; }
+}
+
+@utility tabular { font-variant-numeric: tabular-nums; }
+
+@keyframes scan {
+  from { top: 8%; }
+  to { top: 88%; }
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .scan-line { animation: scan 2.2s ease-in-out infinite alternate; }
+  .skeleton { animation: shimmer 1.6s linear infinite; }
+  .rise { animation: rise 180ms ease-out both; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #e3e9df 25%, #f0f4ed 50%, #e3e9df 75%);
+  background-size: 200% 100%;
+}

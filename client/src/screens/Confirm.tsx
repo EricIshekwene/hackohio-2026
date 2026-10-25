@@ -1,6 +1,6 @@
 import { useEffect, useId } from 'react';
 import { ChevronRight, Info, Plus } from 'lucide-react';
-import type { ExtractedField, FieldKey } from '@shared/types';
+import type { ExtractedField, ExtractionInfo, FieldKey } from '@shared/types';
 import { LEGEND } from '@shared/legend';
 import { FIELD_DEFS, isLowConfidence, regNoLooksOdd, type FieldDef, type Fields } from '@/lib/fields';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,15 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetBody, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Shell, type StepInfo } from '@/components/app-shell';
+import { orderedPhotos, shotLabel, type Photo } from '@/lib/shots';
 import { cn } from '@/lib/utils';
+
+// The server's own read of the photo quality, said once where the user looks at the photos.
+const PHOTO_NOTE: Partial<Record<ExtractionInfo['photoStatus'], string>> = {
+  blurry: 'Some text was blurry. Compare each detail with the pack.',
+  glare: 'Glare hid some text. Compare each detail with the pack.',
+  partial: 'Part of the pack was cut off. Compare each detail with the pack.',
+};
 
 const amber = LEGEND.amber;
 
@@ -66,7 +74,8 @@ export function Confirm({
   reviewed,
   attested,
   attestCleared,
-  photoUrl,
+  photos,
+  extraction,
   error,
   onBack,
   onEdit,
@@ -80,7 +89,8 @@ export function Confirm({
   reviewed: FieldKey[];
   attested: boolean;
   attestCleared: boolean;
-  photoUrl: string | null;
+  photos: Photo[];
+  extraction: ExtractionInfo | null;
   error: string | null;
   onBack: () => void;
   onEdit: (key: FieldKey, value: string) => void;
@@ -89,6 +99,8 @@ export function Confirm({
   onCheck: () => void;
 }) {
   const attestId = useId();
+  const shown = orderedPhotos(photos);
+  const photoNote = source === 'photo' && extraction ? PHOTO_NOTE[extraction.photoStatus] : undefined;
   const required = FIELD_DEFS.filter((d) => !d.optional);
   const optional = FIELD_DEFS.filter((d) => d.optional);
   const needsLook = (d: FieldDef) => isLowConfidence(fields[d.key]) && !reviewed.includes(d.key);
@@ -127,7 +139,7 @@ export function Confirm({
       step={step}
       onBack={onBack}
       title={source === 'photo' ? 'Check what we read' : 'Type what’s on the pack'}
-      description={source === 'photo' ? 'We read these from your photo. Fix anything that’s wrong.' : 'The NAFDAC number matters most. Fill in what you can see.'}
+      description={source === 'photo' ? `We read these from your ${shown.length > 1 ? 'photos' : 'photo'}. Fix anything that’s wrong.` : 'The NAFDAC number matters most. Fill in what you can see.'}
       className="gap-3"
       footer={
         <>
@@ -147,23 +159,32 @@ export function Confirm({
         </>
       }
     >
-      {photoUrl && (
+      {shown.length > 0 && (
         <Sheet>
           <SheetTrigger className="flex items-center gap-3 rounded-md px-1 text-left">
-            <img src={photoUrl} alt="" className="size-11 rounded-sm object-cover shadow-[0_0_0_1px_var(--color-line)]" />
+            <span className="flex shrink-0 -space-x-5">
+              {shown.map((p) => (
+                <img key={p.shot} src={p.url} alt="" className="size-11 rounded-sm object-cover shadow-[0_0_0_1.5px_white,0_0_0_2.5px_var(--color-line)]" />
+              ))}
+            </span>
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="text-body font-medium">Your photo</span>
-              <span className="text-cap text-ink-3">Tap to zoom in and copy from it</span>
+              <span className="text-body font-medium">{shown.length === 1 ? 'Your photo' : `Your ${shown.length} photos`}</span>
+              <span className={cn('text-cap', photoNote ? 'font-medium text-ink' : 'text-ink-3')}>{photoNote ?? 'Tap to zoom in and copy from them'}</span>
             </span>
             <ChevronRight className="size-4 text-ink-3" />
           </SheetTrigger>
           <SheetContent>
             <SheetHeader>
-              <SheetTitle>Your photo</SheetTitle>
+              <SheetTitle>{shown.length === 1 ? 'Your photo' : 'Your photos'}</SheetTitle>
               <SheetDescription>Pinch to zoom. Compare each detail with the pack itself too.</SheetDescription>
             </SheetHeader>
             <SheetBody>
-              <img src={photoUrl} alt="Your photo of the pack" className="w-full rounded-md bg-stage object-contain" />
+              {shown.map((p) => (
+                <figure key={p.shot} className="flex flex-col gap-1.5">
+                  <img src={p.url} alt={`Your photo: ${shotLabel(p.shot)}`} className="w-full rounded-md bg-stage object-contain" />
+                  <figcaption className="text-cap text-ink-3">{shotLabel(p.shot)}</figcaption>
+                </figure>
+              ))}
             </SheetBody>
           </SheetContent>
         </Sheet>

@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "dev:mocks": "VITE_USE_MOCKS=true vite",
+    "dev:phone": "PHONE=true vite",
+    "dev:phone:mocks": "PHONE=true VITE_USE_MOCKS=true vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview"
@@ -15,6 +17,7 @@
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",

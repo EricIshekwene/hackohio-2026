@@ -33,6 +33,17 @@ export interface StandardizedMedicationInput {
 
 export type FieldKey = keyof StandardizedMedicationInput['fields'];
 
+// /api/extract returns the input plus how the photos went. /api/check ignores the extra key.
+export type PhotoStatus = 'ok' | 'blurry' | 'glare' | 'partial' | 'multiple_packs' | 'not_medicine';
+export type PackSide = 'front' | 'back' | 'side' | 'top' | 'bottom' | 'blister' | 'unknown';
+export interface ExtractionInfo {
+  photoStatus: PhotoStatus;
+  sidesSeen: { photo: number; side: PackSide }[]; // 1-based, in the order the photos were sent
+  model: string;
+  costUsd: number;
+}
+export type ExtractResponse = StandardizedMedicationInput & { extraction: ExtractionInfo };
+
 // ---------- Output ----------
 
 export type Verdict = 'red' | 'amber' | 'green' | 'unsure';

@@ -1,5 +1,7 @@
 import type {
   ApiError,
+  ExtractionInfo,
+  ExtractResponse,
   LegendEntry,
   ReportDraft,
   ReportRequest,
@@ -11,12 +13,13 @@ import demoPacks from '@shared/fixtures/demo-packs.json';
 import heroCloned from '@shared/fixtures/hero-cloned.result.json';
 import alert042 from '@shared/fixtures/alert-042.result.json';
 import realGreen from '@shared/fixtures/real-green.result.json';
+import { orderedPhotos, type Photo } from '@/lib/shots';
 
 // VITE_USE_MOCKS=true serves the backend's own fixture output, so the demo video never depends on the network.
 export const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 const TIMEOUT_MS = 15_000;
-const EXTRACT_TIMEOUT_MS = 30_000;
+const EXTRACT_TIMEOUT_MS = 45_000; // one AI call reads up to three photos
 
 export type DemoPackId = 'hero-cloned' | 'alert-042' | 'real-green';
 
@@ -34,7 +37,7 @@ const FIXTURE_RESULTS: Record<DemoPackId, VerificationResult> = {
 
 export class RequestError extends Error {
   constructor(
-    public kind: 'network' | 'timeout' | 'api',
+    public kind: 'network' | 'timeout' | 'api' | 'cancelled',
     message: string,
     public status?: number,
     public body?: ApiError,
@@ -43,13 +46,16 @@ export class RequestError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit, timeoutMs = TIMEOUT_MS): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, timeoutMs = TIMEOUT_MS, signal?: AbortSignal): Promise<T> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  // The caller can cancel too (the user left the screen); that is not a timeout.
+  signal?.addEventListener('abort', () => ctrl.abort(), { once: true });
   let res: Response;
   try {
     res = await fetch(BASE + path, { ...init, signal: ctrl.signal });
   } catch (e) {
+    if (signal?.aborted) throw new RequestError('cancelled', 'Cancelled.');
     if ((e as Error).name === 'AbortError') throw new RequestError('timeout', 'That took too long. Check your connection and try again.');
     throw new RequestError('network', "We couldn't reach MedCheck. Check your connection and try again.");
   } finally {
@@ -92,11 +98,13 @@ export async function draftReport(req: ReportRequest): Promise<ReportDraft> {
   return buildReport(req);
 }
 
-// /api/extract is the middleware's route (photo -> StandardizedMedicationInput). In mock mode it
-// "reads" the hero pack, with one low-confidence field so the review step shows.
-export async function extractFromPhoto(photo: Blob): Promise<StandardizedMedicationInput> {
+// /api/extract is the middleware's route: 1–3 photos of one pack -> StandardizedMedicationInput.
+// In mock mode it "reads" the hero pack, with one low-confidence field so the review step shows.
+export async function extractFromPhotos(photos: Photo[], signal?: AbortSignal): Promise<{ input: StandardizedMedicationInput; extraction: ExtractionInfo | null }> {
+  const ordered = orderedPhotos(photos);
   if (USE_MOCKS) {
     await delay(1800);
+    if (signal?.aborted) throw new RequestError('cancelled', 'Cancelled.');
     const input = clone(DEMO_PACKS[0].input);
     input.source = 'photo';
     input.confirmedByUser = false;
@@ -107,13 +115,14 @@ export async function extractFromPhoto(photo: Blob): Promise<StandardizedMedicat
       f.sourceText = k === 'batchNo' ? 'BATCH N0: GL22I0' : (f.value ?? '');
     }
     if (input.fields.batchNo) input.fields.batchNo.notes = ['AI\'s value differs from the printed text "BATCH N0: GL22I0"'];
-    return input;
+    const sides = ['front', 'back', 'side'] as const;
+    return { input, extraction: { photoStatus: 'ok', sidesSeen: ordered.map((_, i) => ({ photo: i + 1, side: sides[i] })), model: 'mock', costUsd: 0 } };
   }
   const form = new FormData();
-  form.append('image', photo, 'pack.jpg');
-  // Reading a pack takes ~6–10 s (AI call), so give it more room than the other endpoints.
-  const result = await request<StandardizedMedicationInput>('/api/extract', { method: 'POST', body: form }, EXTRACT_TIMEOUT_MS);
-  return { ...result, source: 'photo', confirmedByUser: false };
+  ordered.forEach((p) => form.append('photos', p.blob, `${p.shot}.jpg`));
+  // Reading takes ~6–15 s (one AI call for the whole set), so give it more room than the other endpoints.
+  const { extraction, ...input } = await request<ExtractResponse>('/api/extract', { method: 'POST', body: form }, EXTRACT_TIMEOUT_MS, signal);
+  return { input: { ...input, source: 'photo', confirmedByUser: false }, extraction: extraction ?? null };
 }
 
 export interface Meta {

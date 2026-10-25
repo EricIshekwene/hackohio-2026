@@ -3,7 +3,7 @@
 // 404 photo reading not switched on · 422 couldn't read the pack · 429 paused (budget) · 503 AI unavailable.
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import multer from 'multer';
-import type { ApiError } from '../../../shared/types';
+import type { ApiError, ExtractResponse } from '../../../shared/types';
 import { aiConfigured, ExtractError, extractFromImages, modelName } from './claude';
 import { toMedicationInput } from './fields';
 import { ACCEPTED_MIME, prepareImage } from './images';
@@ -67,7 +67,7 @@ extractRouter.post(
         return fail(res, 422, { error: 'invalid_input', message: "This doesn't look like a medicine pack." });
       }
       // Extra `extraction` key is ignored by /api/check's validator.
-      return res.json({ ...toMedicationInput(raw), extraction: { photoStatus: raw.photoStatus, sidesSeen: raw.sidesSeen, model, costUsd } });
+      return res.json({ ...toMedicationInput(raw), extraction: { photoStatus: raw.photoStatus, sidesSeen: raw.sidesSeen, model, costUsd } } satisfies ExtractResponse);
     } catch (err) {
       if (!(err instanceof ExtractError)) throw err;
       console.warn(`[extract] ${err.reason}: ${err.message}`);

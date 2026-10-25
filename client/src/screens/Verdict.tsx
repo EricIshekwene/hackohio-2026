@@ -190,6 +190,7 @@ export function VerdictScreen({
           </Button>
         )
       }
+      fit
       className="gap-3 pt-4"
       footer={
         <>
@@ -200,7 +201,8 @@ export function VerdictScreen({
     >
       <VerdictHeader result={result} productName={productName} compact={tab !== 'compare'} />
 
-      <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
+      {/* A long comparison (all nine fields plus notes) scrolls inside the tab, never the page. */}
+      <Tabs value={tab} onValueChange={(v) => setTab(String(v))} className="min-h-0 flex-1">
         <TabsList>
           <TabsTrigger value="compare">
             Compare{differ > 0 && <span className="tabular text-ink-3">{differ} off</span>}
@@ -211,7 +213,7 @@ export function VerdictScreen({
           <TabsTrigger value="checked">Checked</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="compare" className="flex flex-col gap-3">
+        <TabsContent value="compare" className="-mx-1 flex min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain px-1 pb-1">
           <ComparisonTable rows={result.comparison} legendRed={LEGEND.red} />
           {result.alertMatches.map((a) => (
             <AlertRow key={a.alertNo} alert={a} />
@@ -224,7 +226,7 @@ export function VerdictScreen({
           ))}
         </TabsContent>
 
-        <TabsContent value="why">
+        <TabsContent value="why" className="min-h-0 overflow-y-auto overscroll-contain">
           <div className="overflow-hidden rounded-lg border border-line">
             {result.reasons.map((f) => (
               <ReasonRow key={f.rule + f.title} finding={f} summary={result.summary} />
@@ -232,7 +234,7 @@ export function VerdictScreen({
           </div>
         </TabsContent>
 
-        <TabsContent value="checked" className="flex flex-col gap-4">
+        <TabsContent value="checked" className="flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain">
           <section className="flex flex-col gap-2">
             <h2 className="text-body font-semibold">What we checked</h2>
             <Lines items={result.checked} mark="✓" />

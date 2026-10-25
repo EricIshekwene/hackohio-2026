@@ -45,6 +45,7 @@ export function Shell({
   children,
   footer,
   stage = false,
+  fit = false,
   className,
 }: {
   step?: StepInfo;
@@ -56,10 +57,11 @@ export function Shell({
   children: ReactNode;
   footer?: ReactNode;
   stage?: boolean;
+  fit?: boolean; // on phones tall enough, lock to the viewport and let one region scroll; short phones scroll the page
   className?: string;
 }) {
   return (
-    <div className={cn('mx-auto flex min-h-dvh w-full max-w-[430px] flex-col', stage ? 'bg-stage text-white' : 'bg-surface')}>
+    <div className={cn('mx-auto flex w-full', 'min-h-dvh', fit && '[@media(min-height:740px)]:h-dvh', ' max-w-[430px] flex-col', stage ? 'bg-stage text-white' : 'bg-surface')}>
       <header className="flex flex-col gap-2 px-5 pt-[max(10px,env(safe-area-inset-top))]">
         <div className="-mx-2 flex h-11 items-center justify-between">
           {onBack ? (
@@ -74,7 +76,7 @@ export function Shell({
         </div>
         {step && <Stepper {...step} onStage={stage} />}
       </header>
-      <main className={cn('enter flex flex-1 flex-col gap-4 px-5 pt-5 pb-4', className)}>
+      <main className={cn('enter flex flex-1 flex-col gap-4 px-5 pt-5 pb-4', fit && 'min-h-0', className)}>
         {(title || description) && (
           <div className="flex flex-col gap-1">
             {title && <h1 className="text-title font-semibold">{title}</h1>}

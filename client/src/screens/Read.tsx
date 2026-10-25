@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Keyboard, RotateCcw } from 'lucide-react';
-import type { StandardizedMedicationInput } from '@shared/types';
-import { extractFromPhoto, RequestError } from '@/lib/api';
+import type { ExtractionInfo, StandardizedMedicationInput } from '@shared/types';
+import { extractFromPhotos, RequestError } from '@/lib/api';
+import { orderedPhotos, shotLabel, type Photo } from '@/lib/shots';
 import { Button } from '@/components/ui/button';
 import { ProgressList, Shell, type StepInfo } from '@/components/app-shell';
 
@@ -11,8 +12,9 @@ function readErrorMessage(e: unknown): string {
   if (e instanceof RequestError) {
     if (e.kind !== 'api') return e.message;
     if (e.status === 404) return "Photo reading isn't switched on yet. Type the details from the pack instead.";
-    if (e.status === 422) return "We couldn't read the pack. Try a sharper photo with less glare, or type the details.";
     if (e.status === 429) return 'Photo reading is paused for now. Type the details from the pack instead.';
+    // 422 says which problem it was (one pack at a time, not a medicine pack, unreadable); 400/413 say what was wrong with the file.
+    if (e.status === 422) return `${e.message} Retake the photos, or type the details.`;
     return e.message;
   }
   return 'Something went wrong reading the photo.';
@@ -20,8 +22,7 @@ function readErrorMessage(e: unknown): string {
 
 export function Read({
   step,
-  photo,
-  photoUrl,
+  photos,
   error,
   onRead,
   onFail,
@@ -30,34 +31,39 @@ export function Read({
   onManual,
 }: {
   step: StepInfo;
-  photo: Blob;
-  photoUrl: string;
+  photos: Photo[];
   error: string | null;
-  onRead: (input: StandardizedMedicationInput) => void;
+  onRead: (input: StandardizedMedicationInput, extraction: ExtractionInfo | null) => void;
   onFail: (msg: string) => void;
   onBack: () => void;
   onRetake: () => void;
   onManual: () => void;
 }) {
-  const started = useRef(false);
   const [active, setActive] = useState(0);
+  const [attempt, setAttempt] = useState(0);
+  const shown = orderedPhotos(photos);
 
-  const run = useCallback(() => {
-    setActive(0);
-    extractFromPhoto(photo)
-      .then((input) => {
-        setActive(STEPS.length);
-        setTimeout(() => onRead(input), 350);
-      })
-      .catch((e) => onFail(readErrorMessage(e)));
-  }, [photo, onRead, onFail]);
-
+  // One read per attempt. Leaving the screen aborts it, so a late answer can't pull the user forward.
   useEffect(() => {
-    // StrictMode mounts twice in dev; only read once.
-    if (started.current) return;
-    started.current = true;
-    run();
-  }, [run]);
+    const ctrl = new AbortController();
+    let done: ReturnType<typeof setTimeout> | undefined;
+    setActive(0);
+    extractFromPhotos(photos, ctrl.signal)
+      .then(({ input, extraction }) => {
+        if (ctrl.signal.aborted) return;
+        setActive(STEPS.length);
+        done = setTimeout(() => onRead(input, extraction), 350);
+      })
+      .catch((e) => {
+        if (!ctrl.signal.aborted) onFail(readErrorMessage(e));
+      });
+    return () => {
+      ctrl.abort();
+      clearTimeout(done);
+    };
+    // photos only change on Snap, which unmounts this screen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attempt]);
 
   // Tick through the list while the request runs; the last item waits for the answer.
   useEffect(() => {
@@ -70,8 +76,8 @@ export function Read({
     <Shell
       step={step}
       onBack={onBack}
-      title={error ? "We couldn't read that photo" : 'Reading the label'}
-      description={error ?? 'The AI only reads the text. You check every detail next.'}
+      title={error ? `We couldn't read ${shown.length === 1 ? 'that photo' : 'those photos'}` : 'Reading the label'}
+      description={error || 'The AI only reads the text. You check every detail next.'}
       footer={
         error && (
           <>
@@ -88,7 +94,7 @@ export function Read({
                 variant="secondary"
                 onClick={() => {
                   onFail('');
-                  run();
+                  setAttempt((a) => a + 1);
                 }}
               >
                 Try again
@@ -98,8 +104,10 @@ export function Read({
         )
       }
     >
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-stage">
-        <img src={photoUrl} alt="Your photo of the pack" className={`size-full object-contain transition-opacity ${error ? 'opacity-40' : ''}`} />
+      <div className={`relative grid w-full gap-1 overflow-hidden rounded-lg bg-stage ${shown.length === 1 ? 'aspect-[4/3]' : 'aspect-[16/9]'}`} style={{ gridTemplateColumns: `repeat(${shown.length}, minmax(0, 1fr))` }}>
+        {shown.map((p) => (
+          <img key={p.shot} src={p.url} alt={`Your photo: ${shotLabel(p.shot)}`} className={`size-full transition-opacity ${shown.length === 1 ? 'object-contain' : 'object-cover'} ${error ? 'opacity-40' : ''}`} />
+        ))}
         {!error && <span aria-hidden="true" className="scan-line absolute inset-x-4 top-1/2 h-px bg-white shadow-[0_0_12px_3px_rgba(255,255,255,.55)]" />}
       </div>
       <div className="pt-2" role={error ? 'alert' : undefined}>

@@ -21,13 +21,14 @@ const Confirm = lazy(() => import('@/screens/Confirm').then((m) => ({ default: m
 const Checking = lazy(() => import('@/screens/Checking').then((m) => ({ default: m.Checking })));
 const VerdictScreen = lazy(() => import('@/screens/Verdict').then((m) => ({ default: m.VerdictScreen })));
 const Report = lazy(() => import('@/screens/Report').then((m) => ({ default: m.Report })));
-import type { StandardizedMedicationInput } from '@shared/types';
+import type { ExtractionInfo, StandardizedMedicationInput } from '@shared/types';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // The photo path has four steps; the typed path skips Snap and Read.
 function stepFor(state: State): StepInfo | undefined {
-  const photo = state.source === 'photo';
+  // Snap and Read are always the photo path (source only flips to 'photo' once the photos are sent).
+  const photo = state.source === 'photo' || state.screen === 'snap' || state.screen === 'read';
   const steps = photo ? PHOTO_STEPS : TYPED_STEPS;
   const index: Partial<Record<State['screen'], number>> = photo
     ? { snap: 0, read: 1, confirm: 2, checking: 3, verdict: 3 }
@@ -41,8 +42,14 @@ export default function App() {
 
   // Browser and hardware back step back through the flow instead of leaving the app.
   const fromPop = useRef(false);
+  const screenRef = useRef(state.screen);
+  screenRef.current = state.screen;
   useEffect(() => {
     const onPop = () => {
+      // Some back moves skip a screen (Confirm -> Snap skips Read; a new check starts from Snap), which leaves
+      // spare entries behind. On the start screen there is nothing left in the app, so keep going back
+      // until the browser leaves instead of making the user press Back on a screen that doesn't change.
+      if (screenRef.current === 'landing') return history.back();
       fromPop.current = true;
       dispatch({ type: 'back' });
     };
@@ -60,7 +67,7 @@ export default function App() {
     window.scrollTo(0, 0);
   }, [state.screen]);
 
-  const onRead = useCallback((input: StandardizedMedicationInput) => dispatch({ type: 'photoRead', input }), []);
+  const onRead = useCallback((input: StandardizedMedicationInput, extraction: ExtractionInfo | null) => dispatch({ type: 'photoRead', input, extraction }), []);
   const onReadFail = useCallback((error: string) => dispatch({ type: 'readFailed', error }), []);
 
   async function runCheck() {
@@ -111,9 +118,10 @@ export default function App() {
         return (
           <Snap
             step={step!}
-            initial={state.photo && state.photoUrl ? { blob: state.photo, url: state.photoUrl } : null}
+            photos={state.photos}
             onBack={back}
-            onPhoto={(photo, url) => dispatch({ type: 'photoTaken', photo, url })}
+            onPhoto={(photo) => dispatch({ type: 'setPhoto', photo })}
+            onRead={() => dispatch({ type: 'readPhotos' })}
             onManual={() => dispatch({ type: 'startManual' })}
           />
         );
@@ -121,8 +129,7 @@ export default function App() {
         return (
           <Read
             step={step!}
-            photo={state.photo!}
-            photoUrl={state.photoUrl!}
+            photos={state.photos}
             error={state.error}
             onRead={onRead}
             onFail={onReadFail}
@@ -140,7 +147,8 @@ export default function App() {
             reviewed={state.reviewed}
             attested={state.attested}
             attestCleared={state.attestCleared}
-            photoUrl={state.photoUrl}
+            photos={state.photos}
+            extraction={state.extraction}
             error={state.error}
             onBack={back}
             onEdit={(key, value) => dispatch({ type: 'editField', key, value })}

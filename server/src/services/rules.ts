@@ -47,7 +47,9 @@ function unreadable(input: StandardizedMedicationInput, key: FieldKey): boolean 
 
 // Why a field has no value, for "not checked" lines.
 function absentWhy(input: StandardizedMedicationInput, key: FieldKey): string {
-  return unreadable(input, key) ? "couldn't be read from the photo" : 'not on the pack';
+  if (unreadable(input, key)) return "couldn't be read from the photo";
+  // From a photo we can't tell "not printed" from "not in frame / not read": don't claim the pack lacks it.
+  return input.source === 'photo' ? 'not found in the photo' : 'not on the pack';
 }
 
 function worst(verdicts: Verdict[]): Verdict {
@@ -255,10 +257,14 @@ export function checkMedication(
       rule: 'U1',
       code: 'NO_REG_NO',
       verdict: 'unsure',
-      title: torn ? "Registration number couldn't be read clearly" : 'No NAFDAC registration number',
+      title: torn
+        ? "Registration number couldn't be read clearly"
+        : input.source === 'photo' ? 'No NAFDAC registration number found in the photo' : 'No NAFDAC registration number',
       message: torn
         ? `Part of a NAFDAC registration number is visible ("${input.fields.nafdacRegNo.sourceText!.trim()}"), but it couldn't be read in full from the photo, so we could not look it up in the registry.`
-        : 'The pack has no NAFDAC registration number we could use, so we could not look it up in the registry.',
+        : input.source === 'photo'
+          ? "We couldn't find a NAFDAC registration number in the photo (it may be on another side or out of frame), so we could not look it up in the registry."
+          : 'The pack has no NAFDAC registration number we could use, so we could not look it up in the registry.',
       evidence: [row('nafdacRegNo', null, null, null)],
       source: greenbookSource(ds),
       nextStep: torn

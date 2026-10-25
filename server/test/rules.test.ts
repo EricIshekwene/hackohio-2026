@@ -7,6 +7,7 @@ import packs from '../../shared/fixtures/demo-packs.json';
 import type { StandardizedMedicationInput } from '../../shared/types';
 import { createApp } from '../src/app';
 import { loadDataset } from '../src/services/data';
+import { manufacturerMatches, manufacturerNearMiss, productNameMatches, productNameNearMiss } from '../src/services/match';
 import { normalizeBatch, normalizeRegNo, strengthNumbers } from '../src/services/normalize';
 import { parsePackDate } from '../src/services/dates';
 import { checkMedication } from '../src/services/rules';
@@ -163,6 +164,70 @@ describe('licence holder vs factory (R3) and real inactive registrations (R4)', 
     p.fields.manufacturer.value = 'Acme Contract Manufacturing, Karachi';
     p.fields.marketedBy = { value: 'Sunrise Pharma Nig. Ltd', editedByUser: false };
     expect(check(p).reasons[0]).toMatchObject({ rule: 'R3', verdict: 'red' });
+  });
+});
+
+describe('photo wording never claims a field is missing from the pack', () => {
+  it('no reg no. found in a photo', () => {
+    const p = pack('real-green');
+    p.source = 'photo';
+    p.fields.nafdacRegNo.value = null;
+    p.fields.batchNo.value = null;
+    const r = check(p);
+    expect(r.reasons.find((f) => f.rule === 'U1')?.title).toBe('No NAFDAC registration number found in the photo');
+    expect(r.notChecked.join(' | ')).toMatch(/Batch number \(not found in the photo\)/);
+    expect(JSON.stringify(r)).not.toMatch(/not on the pack/);
+  });
+  it('typed entry keeps "not on the pack"', () => {
+    const p = pack('real-green');
+    p.fields.nafdacRegNo.value = null;
+    expect(check(p).reasons.find((f) => f.rule === 'U1')?.title).toBe('No NAFDAC registration number');
+  });
+});
+
+describe('near-miss spellings 2–3 letters off (re-test regression)', () => {
+  it.each([
+    ['Micyotox Eye Drops', 'Micromox Eye Drops'],
+    ['Emianra 50 Tablets', 'Embagra 50 Tablets'],
+    ['Rocawhin 1G Powder for injection I.M.', 'Rocephin 1G Powder for injection I.M.'],
+    ['Etpigat Tablet 25 mg', 'Empiget Tablet 25 mg'],
+    ['Betaklne Germicide Gargle', 'Betadine Germicide Gargle'],
+  ])('"%s" vs "%s" is a near miss', (pack, reg) => expect(productNameNearMiss(pack, reg)).toBe(true));
+  it.each([
+    ['Easy-Caye Medical Ltd', 'Easy-Care Medical Ltd'],
+    ['Jimmi-dell Pharmaceuticals', 'Jimmy-Dell Pharmaceuticals'],
+  ])('company "%s" vs "%s" is a near miss', (pack, reg) => expect(manufacturerNearMiss(pack, reg)).toBe(true));
+  it.each([
+    ['Betadine Germicide Gargle Mouthwash', 'Betadine Germicide Gargle'], // extra word
+    ['Germicide Gargle', 'Betadine Germicide Gargle'], // word left out
+    ['ARTHEGET-EZ', 'Artheget EZ'], // punctuation/case
+    ['Artheget', 'Artheget EZ'],
+  ])('"%s" vs "%s" is NOT a near miss', (pack, reg) => expect(productNameNearMiss(pack, reg)).toBe(false));
+  it.each([
+    ['GlaxoSmithKline', 'Glaxo SmithKline Consumer Nigeria PLC'],
+    ['MicroNova', 'Micro Nova Pharmaceuticals Ind Ltd'],
+    ['SJS Lifesciences', 'SJS Life Sciences'],
+    ['AstraZeneca', 'Astra Zeneca'],
+  ])('joined/split company "%s" vs "%s" matches with no spelling flag', (pack, reg) => {
+    expect(manufacturerMatches(pack, reg)).toBe(true);
+    expect(manufacturerNearMiss(pack, reg)).toBe(false);
+  });
+  it.each([
+    ['Karifieldline Pharmaceutical Ltd', 'Karifield Pharmaceutical Ltd'], // letters added
+    ['Greenlifeco Pharmaceutical Limited', 'Greenlife Pharmaceutical Limited'],
+  ])('made-up company "%s" vs real "%s" is never treated as the same', (pack, reg) => {
+    expect(manufacturerMatches(pack, reg) === true && !manufacturerNearMiss(pack, reg)).toBe(false);
+  });
+  it.each([
+    ['Crushmalex', 'Crushmal'],
+    ['Albendazo', 'Albendazole'],
+  ])('made-up brand "%s" vs real "%s" is never a clean match', (pack, reg) => {
+    expect(productNameMatches(pack, reg) === true && !productNameNearMiss(pack, reg)).toBe(false);
+  });
+  it('companies that are the same word split differently still match', () => {
+    const pack = 'Micro Nova', reg = 'MicroNova Pharmaceuticals Ind Ltd';
+    expect(manufacturerMatches(pack, reg)).toBe(true);
+    expect(manufacturerNearMiss(pack, reg)).toBe(false);
   });
 });
 

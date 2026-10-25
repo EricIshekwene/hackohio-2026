@@ -1,6 +1,6 @@
 // Field comparisons for R3. Each returns true (match), false (mismatch) or null (can't compare).
 import {
-  companyTokens, nameTokens, normalizeText, similarity, strengthNumbers,
+  companyTokens, levenshtein, nameTokens, normalizeText, similarity, strengthNumbers,
 } from './normalize';
 
 function tokenMatch(a: string, b: string): boolean {
@@ -23,10 +23,36 @@ function sameWord(a: string, b: string): boolean {
   return a === b || a === `${b}s` || b === `${a}s`;
 }
 
-// True when some pack word is only *close* to a registry word: not itself a registry word, but within
-// tokenMatch's 1-2 letters of one. Other words matching exactly don't excuse it ("Betadlne Germicide Gargle").
+// Words joined or split differently are the same name: "GlaxoSmithKline" / "Glaxo SmithKline",
+// "SJS Lifesciences" / "SJS Life Sciences", "AstraZeneca" / "Astra Zeneca". Only the spacing may differ: all of one
+// side's words, joined, must equal the joined first N words of the other, so the cut lands on a word boundary.
+// Added or missing letters never pass ("Karifieldline" / "Karifield", "Crushmalex" / "Crushmal", "Albendazo").
+function sameIgnoringSpaces(a: string[], b: string[]): boolean {
+  const covers = (x: string[], y: string[]) => {
+    const jx = x.join('');
+    if (jx.length < 5) return false;
+    let acc = '';
+    for (const w of y) {
+      acc += w;
+      if (acc === jx) return true;
+      if (acc.length >= jx.length) return false;
+    }
+    return false;
+  };
+  return covers(a, b) || covers(b, a);
+}
+
+// True when a pack word and a registry word are both left unpaired (neither has an exact partner) yet are
+// close to each other: a misspelling, not a different or extra word. "Close" is up to ~45% of the letters
+// changed, so 2–3-letter slips count too ("Betaklne"/"Betadine", "Rocawhin"/"Rocephin") while unrelated
+// words don't ("Mouthwash"/"Germicide"). Other words matching exactly don't excuse it.
 function hasFuzzyOnlyWord(a: string[], b: string[]): boolean {
-  return a.some((t) => !b.some((u) => sameWord(t, u)) && b.some((u) => tokenMatch(t, u)));
+  if (sameIgnoringSpaces(a, b)) return false;
+  const lonelyA = a.filter((t) => !b.some((u) => sameWord(t, u)));
+  const lonelyB = b.filter((u) => !a.some((t) => sameWord(t, u)));
+  return lonelyA.some((t) =>
+    lonelyB.some((u) => Math.min(t.length, u.length) >= 4 && levenshtein(t, u) <= Math.floor(0.45 * Math.max(t.length, u.length))),
+  );
 }
 
 // A fuzzy "match" where a word is misspelled. On a medicine pack a one-letter brand misspelling ("Artheqet"
@@ -50,7 +76,7 @@ export function manufacturerMatches(onPack: string | null, inRegistry: string | 
   const a = companyTokens(onPack);
   const b = companyTokens(inRegistry);
   if (!a.length || !b.length) return null;
-  return a.some((t) => b.some((u) => tokenMatch(t, u)));
+  return sameIgnoringSpaces(a, b) || a.some((t) => b.some((u) => tokenMatch(t, u)));
 }
 
 // Active ingredient: every ingredient named on the pack must appear in the record.

@@ -1,7 +1,8 @@
-// Resize a photo to 1,000 px on the long edge and re-encode as JPEG before upload.
-const MAX_EDGE = 1000;
+// Resize a photo to 1,600 px on the long edge and re-encode as JPEG before upload.
+// Small batch/expiry print needs the pixels; the server re-encodes at 1,568 px anyway.
+const MAX_EDGE = 1600;
 
-export async function resizeImage(file: File, quality = 0.8): Promise<Blob> {
+export async function resizeImage(file: File, quality = 0.85): Promise<Blob> {
   if (!file.type.startsWith('image/')) throw new Error('not_an_image');
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));

@@ -16,6 +16,7 @@ import realGreen from '@shared/fixtures/real-green.result.json';
 export const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 const TIMEOUT_MS = 15_000;
+const EXTRACT_TIMEOUT_MS = 30_000;
 
 export type DemoPackId = 'hero-cloned' | 'alert-042' | 'real-green';
 
@@ -42,9 +43,9 @@ export class RequestError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, timeoutMs = TIMEOUT_MS): Promise<T> {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   let res: Response;
   try {
     res = await fetch(BASE + path, { ...init, signal: ctrl.signal });
@@ -105,11 +106,13 @@ export async function extractFromPhoto(photo: Blob): Promise<StandardizedMedicat
       f.confidence = conf[k] ?? 0.9;
       f.sourceText = k === 'batchNo' ? 'BATCH N0: GL22I0' : (f.value ?? '');
     }
+    if (input.fields.batchNo) input.fields.batchNo.notes = ['AI\'s value differs from the printed text "BATCH N0: GL22I0"'];
     return input;
   }
   const form = new FormData();
   form.append('image', photo, 'pack.jpg');
-  const result = await request<StandardizedMedicationInput>('/api/extract', { method: 'POST', body: form });
+  // Reading a pack takes ~6–10 s (AI call), so give it more room than the other endpoints.
+  const result = await request<StandardizedMedicationInput>('/api/extract', { method: 'POST', body: form }, EXTRACT_TIMEOUT_MS);
   return { ...result, source: 'photo', confirmedByUser: false };
 }
 

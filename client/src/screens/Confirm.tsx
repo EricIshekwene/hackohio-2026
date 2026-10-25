@@ -41,6 +41,12 @@ function FieldRow({ def, field, needsLook, onChange, onReview }: { def: FieldDef
             Read as “{field.sourceText}”
           </span>
         )}
+        {needsLook &&
+          field?.notes?.map((note) => (
+            <span key={note} className="text-cap" style={{ color: amber.text }}>
+              {note}
+            </span>
+          ))}
       </div>
       {needsLook ? (
         <Button size="sm" variant="secondary" onClick={onReview} className="bg-white">

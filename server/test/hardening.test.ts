@@ -15,6 +15,7 @@ import { parsePackDate } from '../src/services/dates';
 import { ingredientMatches, productNameMatches } from '../src/services/match';
 import { normalizeRegNo, strengthNumbers } from '../src/services/normalize';
 import { checkMedication } from '../src/services/rules';
+import { snapshotProblems } from '../scripts/snapshot-check';
 
 const ds = loadDataset();
 const NOW = new Date('2026-10-25T12:00:00Z');
@@ -153,4 +154,18 @@ describe('AI budget guards', () => {
     process.env.SPEND_LIMIT_USD = '30usd';
     expect(spendLimit()).toBe(30);
   });
+});
+
+describe('Greenbook snapshot guard', () => {
+  const ok = { recordsTotal: 8946, rowsFetched: 8946, products: 8943, previousTotal: 8943 };
+  it('accepts a full snapshot', () => expect(snapshotProblems(ok)).toEqual([]));
+  it('accepts a first snapshot with nothing to compare', () => expect(snapshotProblems({ ...ok, previousTotal: null })).toEqual([]));
+  it('refuses a partial scrape', () => expect(snapshotProblems({ ...ok, rowsFetched: 4000, products: 4000 }).length).toBeGreaterThan(0));
+  it('refuses a missing or zero total', () => {
+    expect(snapshotProblems({ ...ok, recordsTotal: undefined })).toHaveLength(1);
+    expect(snapshotProblems({ ...ok, recordsTotal: 0, rowsFetched: 0, products: 0 }).length).toBeGreaterThan(0);
+  });
+  it('refuses when the field mapping drops reg nos', () => expect(snapshotProblems({ ...ok, products: 100 }).length).toBeGreaterThan(0));
+  it('refuses a big drop from the current snapshot', () =>
+    expect(snapshotProblems({ recordsTotal: 5000, rowsFetched: 5000, products: 5000, previousTotal: 8943 })).toHaveLength(1));
 });

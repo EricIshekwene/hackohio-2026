@@ -1,10 +1,11 @@
 // One-time Greenbook snapshot -> data/registry.json. Run ONCE, from a laptop, never during the demo.
 // Greenbook has no CORS and runs in debug mode: ~18 polite requests, 1.5 s apart, no other probing.
 //   npm run snapshot:registry
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { RegistryRecord } from '../../shared/types';
 import { DATA_DIR } from '../src/services/data';
+import { snapshotProblems } from './snapshot-check';
 
 const BASE = 'https://greenbook.nafdac.gov.ng/';
 const PAGE = 500;
@@ -51,6 +52,7 @@ async function fetchPage(start: number, draw: number) {
   if (!res.ok) throw new Error(`HTTP ${res.status} at start=${start}`);
   const json = (await res.json()) as Record<string, any>;
   delete json.queries; // debug SQL echo; never keep it
+  if (!Array.isArray(json.data)) throw new Error(`no data array at start=${start} (keys: ${Object.keys(json).join(', ')})`);
   return json as unknown as { recordsTotal: number; data: Record<string, any>[] };
 }
 
@@ -71,8 +73,12 @@ async function main() {
   }
   const products = rows.map(toRecord).filter((p) => p.regNo);
   const snapshotDate = new Date().toISOString().slice(0, 10);
+  const registryFile = path.join(DATA_DIR, 'registry.json');
+  const previousTotal = existsSync(registryFile) ? Number(JSON.parse(readFileSync(registryFile, 'utf8')).total) || null : null;
+  const problems = snapshotProblems({ recordsTotal: total, rowsFetched: rows.length, products: products.length, previousTotal });
+  if (problems.length) throw new Error(`refusing to replace registry.json: ${problems.join('; ')}`);
   writeFileSync(
-    path.join(DATA_DIR, 'registry.json'),
+    registryFile,
     JSON.stringify({ source: 'NAFDAC Greenbook', sourceUrl: BASE, snapshotDate, total: products.length, products }, null, 0),
   );
   const a4 = products.filter((p) => p.regNo.replace(/\s/g, '').toUpperCase() === 'A4-6238');

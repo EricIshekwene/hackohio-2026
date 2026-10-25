@@ -1,5 +1,5 @@
 import { useEffect, useId } from 'react';
-import { ChevronRight, Info, Plus } from 'lucide-react';
+import { ChevronRight, Info, Plus, RotateCcw } from 'lucide-react';
 import type { ExtractedField, ExtractionInfo, FieldKey } from '@shared/types';
 import { LEGEND } from '@shared/legend';
 import { FIELD_DEFS, isLowConfidence, regNoLooksOdd, type FieldDef, type Fields } from '@/lib/fields';
@@ -78,6 +78,7 @@ export function Confirm({
   extraction,
   error,
   onBack,
+  onRetake,
   onEdit,
   onReview,
   onAttest,
@@ -93,6 +94,7 @@ export function Confirm({
   extraction: ExtractionInfo | null;
   error: string | null;
   onBack: () => void;
+  onRetake: () => void;
   onEdit: (key: FieldKey, value: string) => void;
   onReview: (key: FieldKey) => void;
   onAttest: (v: boolean) => void;
@@ -103,7 +105,11 @@ export function Confirm({
   const photoNote = source === 'photo' && extraction ? PHOTO_NOTE[extraction.photoStatus] : undefined;
   const required = FIELD_DEFS.filter((d) => !d.optional);
   const optional = FIELD_DEFS.filter((d) => d.optional);
-  const needsLook = (d: FieldDef) => isLowConfidence(fields[d.key]) && !reviewed.includes(d.key);
+  // A photo read that came back (nearly) empty: say so and offer a retake, instead of a column of empty highlighted rows.
+  const filled = (d: FieldDef) => !!fields[d.key]?.value?.trim();
+  const poorRead = source === 'photo' && required.filter((d) => !filled(d)).length >= required.length - 1;
+  // An empty row has nothing to confirm; after a poor read the user just types into it.
+  const needsLook = (d: FieldDef) => isLowConfidence(fields[d.key]) && !reviewed.includes(d.key) && !(poorRead && !filled(d));
   const unreviewed = FIELD_DEFS.filter(needsLook).length;
   const anyValue = FIELD_DEFS.some((d) => fields[d.key]?.value?.trim());
   const canAttest = unreviewed === 0 && anyValue;
@@ -112,7 +118,7 @@ export function Confirm({
   const regHint = !regNo.trim()
     ? "No NAFDAC number? You can still check, but we won't be able to say much."
     : regNoLooksOdd(regNo)
-      ? 'NAFDAC numbers usually look like A4-6238 or 04-1234. Double-check it.'
+      ? 'NAFDAC numbers usually look like A4-0000 or 04-0000. Double-check it.'
       : null;
 
   // Coming back from "Add the NAFDAC number": put the cursor where it's needed.
@@ -169,7 +175,7 @@ export function Confirm({
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="text-body font-medium">{shown.length === 1 ? 'Your photo' : `Your ${shown.length} photos`}</span>
-              <span className={cn('text-cap', photoNote ? 'font-medium text-ink' : 'text-ink-3')}>{photoNote ?? 'Tap to zoom in and copy from them'}</span>
+              <span className={cn('text-cap', photoNote ? 'font-medium text-ink' : 'text-ink-3')}>{photoNote ?? (shown.length === 1 ? 'Tap to zoom in and copy from it' : 'Tap to zoom in and copy from them')}</span>
             </span>
             <ChevronRight className="size-4 text-ink-3" />
           </SheetTrigger>
@@ -185,6 +191,17 @@ export function Confirm({
             </SheetBody>
           </SheetContent>
         </Sheet>
+      )}
+
+      {poorRead && (
+        <div role="status" className="flex flex-col items-start gap-2 rounded-md p-3.5 shadow-[inset_0_0_0_1px_var(--color-line)]">
+          <p className="text-body font-medium">We couldn’t read much from {shown.length > 1 ? 'those photos' : 'that photo'}</p>
+          <p className="text-foot text-ink-2">Retake with the text sharp and free of glare, or type the details below.</p>
+          <Button size="sm" variant="secondary" onClick={onRetake}>
+            <RotateCcw strokeWidth={1.75} />
+            Retake
+          </Button>
+        </div>
       )}
 
       <div className="overflow-hidden rounded-lg border border-line">

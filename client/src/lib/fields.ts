@@ -11,16 +11,16 @@ export interface FieldDef {
 
 // Most important first: the reg. no. drives the result, the name and maker are what R3 compares.
 export const FIELD_DEFS: FieldDef[] = [
-  { key: 'productName', label: 'Product name', placeholder: 'e.g. Artheget EZ' },
+  { key: 'productName', label: 'Product name', placeholder: 'Brand name as printed' },
   {
     key: 'nafdacRegNo',
     label: 'NAFDAC reg. no.',
-    placeholder: 'e.g. A4-6238',
+    placeholder: 'e.g. A4-0000',
     mono: true,
     hint: 'Often near the barcode or on the side of the pack.',
   },
-  { key: 'manufacturer', label: 'Manufacturer', placeholder: 'e.g. Getz Pharma' },
-  { key: 'batchNo', label: 'Batch no.', placeholder: 'e.g. AG1042', mono: true },
+  { key: 'manufacturer', label: 'Manufacturer', placeholder: 'Company name as printed' },
+  { key: 'batchNo', label: 'Batch no.', placeholder: 'e.g. B0000', mono: true },
   { key: 'expiryDate', label: 'Expiry date', placeholder: 'e.g. 03/2028', mono: true },
   { key: 'strength', label: 'Strength', placeholder: 'e.g. 80 mg / 480 mg' },
   { key: 'activeIngredient', label: 'Active ingredient', placeholder: 'e.g. Artemether; Lumefantrine', optional: true },

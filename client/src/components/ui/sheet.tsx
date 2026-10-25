@@ -20,8 +20,10 @@ function SheetContent({ className, children, ...props }: SheetPrimitive.Popup.Pr
         {...props}
       >
         <span aria-hidden="true" className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-line" />
-        <SheetPrimitive.Close aria-label="Close" className="absolute top-3 right-3 grid size-8 place-items-center rounded-full bg-fill text-ink-2 hover:text-ink">
-          <X className="size-4" />
+        <SheetPrimitive.Close aria-label="Close" className="group absolute top-1.5 right-1.5 grid size-11 place-items-center rounded-full text-ink-2 outline-none hover:text-ink">
+          <span className="grid size-8 place-items-center rounded-full bg-fill group-focus-visible:outline-2 group-focus-visible:outline-brand">
+            <X className="size-4" />
+          </span>
         </SheetPrimitive.Close>
         {children}
       </SheetPrimitive.Popup>

@@ -15,8 +15,9 @@ const buttonVariants = cva(
       },
       size: {
         default: 'h-12 px-5 text-body',
-        sm: 'h-9 rounded-sm px-3 text-foot',
-        icon: 'size-10 rounded-full',
+        // 44px: the smallest comfortable tap target.
+        sm: 'h-11 rounded-sm px-3 text-foot',
+        icon: 'size-11 rounded-full',
       },
       block: { true: 'w-full' },
     },

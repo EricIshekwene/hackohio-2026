@@ -8,7 +8,7 @@ function Tabs({ className, ...props }: TabsPrimitive.Root.Props) {
 // Segmented control: the active tab is a white chip that slides on the grey track.
 function TabsList({ className, children, ...props }: TabsPrimitive.List.Props) {
   return (
-    <TabsPrimitive.List data-slot="tabs-list" className={cn('relative z-0 flex rounded-[10px] bg-fill p-[3px]', className)} {...props}>
+    <TabsPrimitive.List data-slot="tabs-list" className={cn('relative z-0 flex rounded-[10px] bg-fill px-[3px]', className)} {...props}>
       {children}
       <TabsPrimitive.Indicator className="absolute top-[3px] left-0 -z-10 h-[calc(100%-6px)] w-(--active-tab-width) translate-x-(--active-tab-left) rounded-sm bg-surface shadow-tab transition-[translate,width] duration-200 ease-out" />
     </TabsPrimitive.List>
@@ -20,7 +20,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"
       className={cn(
-        'flex h-8 flex-1 items-center justify-center gap-1.5 rounded-sm text-foot font-medium text-ink-2 outline-none transition-colors data-[active]:text-ink focus-visible:outline-2 focus-visible:outline-brand',
+        'flex h-11 flex-1 items-center justify-center gap-1.5 rounded-sm text-foot font-medium text-ink-2 outline-none transition-colors data-[active]:text-ink focus-visible:outline-2 focus-visible:outline-brand',
         className,
       )}
       {...props}

@@ -152,6 +152,7 @@ export default function App() {
             extraction={state.extraction}
             error={state.error}
             onBack={back}
+            onRetake={() => dispatch({ type: 'go', screen: 'snap' })}
             onEdit={(key, value) => dispatch({ type: 'editField', key, value })}
             onReview={(key) => dispatch({ type: 'reviewField', key })}
             onAttest={(value) => dispatch({ type: 'attest', value })}

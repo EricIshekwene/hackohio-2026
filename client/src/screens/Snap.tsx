@@ -295,9 +295,12 @@ export function Snap({
                   type="button"
                   aria-label={`Remove photo ${i + 1}`}
                   onClick={() => remove(p.id)}
-                  className="absolute -top-1.5 -right-1.5 grid size-6 place-items-center rounded-full bg-white text-ink shadow"
+                  className="group absolute -top-4 -right-4 z-10 grid size-11 place-items-center rounded-full outline-none"
                 >
-                  <X className="size-3.5" strokeWidth={2.5} />
+                  {/* The white dot stays small; the 44px button around it is the tap target. */}
+                  <span className="grid size-6 place-items-center rounded-full bg-white text-ink shadow group-focus-visible:outline-2 group-focus-visible:outline-white">
+                    <X className="size-3.5" strokeWidth={2.5} />
+                  </span>
                 </button>
               </div>
             );

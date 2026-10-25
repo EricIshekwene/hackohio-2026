@@ -95,7 +95,8 @@ export function ProgressList({ items, active, failed = false }: { items: string[
   return (
     <ol className="flex flex-col gap-3" aria-live="polite">
       {items.map((label, i) => {
-        const state = i < active ? 'done' : i === active && !failed ? 'running' : 'waiting';
+        // A failed run ticks nothing off: none of it gave a usable result.
+        const state = failed ? 'waiting' : i < active ? 'done' : i === active ? 'running' : 'waiting';
         return (
           <li key={label} className={cn('flex items-center gap-3 text-body transition-colors', state === 'waiting' ? 'text-ink-3' : 'text-ink')}>
             <span className="grid size-5 shrink-0 place-items-center" aria-hidden="true">

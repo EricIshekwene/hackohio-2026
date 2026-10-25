@@ -10,6 +10,7 @@ export interface State {
   photos: Photo[]; // 1–3 photos of the pack, in the order taken; kept on the typed path so the user can copy from them
   extraction: ExtractionInfo | null; // how the read went (glare, blur…), from /api/extract
   fields: Fields;
+  originals: Partial<Record<FieldKey, string | null>>; // what the photo read said, so restoring it clears "Edited"
   reviewed: FieldKey[]; // low-confidence rows the user confirmed with "Looks right"
   attested: boolean; // "These details match the pack"
   attestCleared: boolean; // an edit un-ticked the attestation; say so next to the button
@@ -24,6 +25,7 @@ export const initialState: State = {
   photos: [],
   extraction: null,
   fields: emptyFields(),
+  originals: {},
   reviewed: [],
   attested: false,
   attestCleared: false,
@@ -64,6 +66,7 @@ export function reducer(state: State, action: Action): State {
         photos: keep ? state.photos : [],
         extraction: null,
         fields: action.prefill ? structuredClone(action.prefill.fields) : emptyFields(),
+        originals: {},
         reviewed: [],
         attested: false,
         attestCleared: false,
@@ -85,12 +88,26 @@ export function reducer(state: State, action: Action): State {
     case 'readPhotos':
       return state.photos.length ? { ...state, screen: 'read', source: 'photo', error: null } : state;
     case 'photoRead':
-      return { ...state, screen: 'confirm', source: 'photo', fields: action.input.fields, extraction: action.extraction, reviewed: [], attested: false, attestCleared: false, error: null };
+      return {
+        ...state,
+        screen: 'confirm',
+        source: 'photo',
+        fields: action.input.fields,
+        originals: Object.fromEntries(Object.entries(action.input.fields).map(([k, f]) => [k, f?.value ?? null])),
+        extraction: action.extraction,
+        reviewed: [],
+        attested: false,
+        attestCleared: false,
+        error: null,
+      };
     case 'readFailed':
       return { ...state, error: action.error };
     case 'editField': {
       const prev = state.fields[action.key];
-      const next = { ...(prev ?? { value: null, editedByUser: false }), value: action.value, editedByUser: true };
+      // Typing back exactly what the photo read is not an edit.
+      const norm = (v: string | null | undefined) => (v ?? '').trim();
+      const edited = action.key in state.originals ? norm(action.value) !== norm(state.originals[action.key]) : true;
+      const next = { ...(prev ?? { value: null, editedByUser: false }), value: action.value, editedByUser: edited };
       // Any edit means the user has to re-confirm the whole set.
       return { ...state, fields: { ...state.fields, [action.key]: next }, attested: false, attestCleared: state.attested || state.attestCleared, error: null };
     }
@@ -126,7 +143,7 @@ export function reducer(state: State, action: Action): State {
     case 'reset':
       // Straight back to the camera: pharmacists check pack after pack.
       revokeAll(state.photos);
-      return { ...initialState, fields: emptyFields(), screen: 'snap' };
+      return { ...initialState, fields: emptyFields(), originals: {}, screen: 'snap' };
   }
 }
 

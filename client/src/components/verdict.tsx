@@ -29,7 +29,7 @@ export function VerdictIcon({ legend, size = 24 }: { legend: LegendEntry; size?:
 export function LegendPopover({ caveat, className }: { caveat: string; className?: string }) {
   return (
     <Popover>
-      <PopoverTrigger aria-label="What do the colours mean?" className={cn('grid size-8 place-items-center rounded-full text-current opacity-70 hover:opacity-100', className)}>
+      <PopoverTrigger aria-label="What do the colours mean?" className={cn('grid size-11 shrink-0 place-items-center rounded-full text-current opacity-70 hover:opacity-100', className)}>
         <Info className="size-[18px]" strokeWidth={1.75} />
       </PopoverTrigger>
       <PopoverContent>
@@ -54,13 +54,15 @@ export function LegendPopover({ caveat, className }: { caveat: string; className
 }
 
 // The hero: what's on the pack next to what NAFDAC registered. Shown once, never repeated.
-export function ComparisonTable({ rows, legendRed, sourceLabel = 'NAFDAC record' }: { rows: ComparisonRow[]; legendRed: LegendEntry; sourceLabel?: string }) {
-  const differ = rows.filter((r) => r.match === false).length;
+// differ/alerts come from the whole result (a mismatch can sit in a finding's evidence, not just these rows).
+export function ComparisonTable({ rows, legendRed, sourceLabel = 'NAFDAC record', differ: differIn, alerts = 0 }: { rows: ComparisonRow[]; legendRed: LegendEntry; sourceLabel?: string; differ?: number; alerts?: number }) {
+  const differ = differIn ?? rows.filter((r) => r.match === false).length;
   return (
     <div className="shrink-0 overflow-hidden rounded-lg border border-line" style={legendVars(legendRed)}>
       <table className="w-full border-collapse text-left">
         <caption className="sr-only">
-          Your pack compared with the {sourceLabel}. {differ} {differ === 1 ? 'detail differs' : 'details differ'}.
+          Your pack compared with the {sourceLabel}. {differ === 0 ? 'No details differ' : `${differ} ${differ === 1 ? 'detail differs' : 'details differ'}`}.
+          {alerts > 0 && ` The pack matches ${alerts === 1 ? 'a NAFDAC public alert' : `${alerts} NAFDAC public alerts`}.`}
         </caption>
         <thead>
           <tr className="text-cap text-ink-3">
@@ -136,7 +138,7 @@ export function SourceLink({ source }: { source: Finding['source'] }) {
     </>
   );
   return source.url ? (
-    <a href={source.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-foot text-ink underline decoration-ink/25 underline-offset-4 hover:decoration-ink">
+    <a href={source.url} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-1 self-start text-foot text-ink underline decoration-ink/25 underline-offset-4 hover:decoration-ink">
       {label}
       <ExternalLink className="size-3.5 shrink-0" strokeWidth={1.75} />
     </a>

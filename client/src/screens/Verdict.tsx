@@ -25,7 +25,7 @@ function VerdictHeader({ result, productName, compact }: { result: VerificationR
           </h1>
           <span className="truncate text-cap">{l.label} · {result.caveat}</span>
         </span>
-        <LegendPopover caveat={result.caveat} className="-mr-1.5" />
+        <LegendPopover caveat={result.caveat} className="-my-2.5 -mr-3" />
       </section>
     );
   return (
@@ -47,7 +47,7 @@ function VerdictHeader({ result, productName, compact }: { result: VerificationR
             </h1>
           </div>
         )}
-        <LegendPopover caveat={result.caveat} className="-mt-1 -mr-1.5" />
+        <LegendPopover caveat={result.caveat} className="-mt-2.5 -mr-3" />
       </div>
       <p className="text-body">{result.summary}</p>
       <p className="text-body font-medium text-ink">{nextStep}</p>
@@ -138,7 +138,7 @@ function SourceCard({ e }: { e: EvidenceRecord }) {
         <span key={l} className="text-cap text-ink-3">{l}</span>
       ))}
       {e.sourceUrl && (
-        <a href={e.sourceUrl} target="_blank" rel="noreferrer" className="text-cap text-ink underline decoration-ink/25 underline-offset-4">
+        <a href={e.sourceUrl} target="_blank" rel="noreferrer" className="-my-3 inline-flex min-h-11 items-center self-start text-cap text-ink underline decoration-ink/25 underline-offset-4">
           Open source
         </a>
       )}
@@ -179,7 +179,8 @@ export function VerdictScreen({
   const v = result.verdict;
   // Couldn't verify the number: the useful next move is to re-check what was typed.
   const recheck = result.status === 'not_found_in_snapshot' || result.status === 'input_uncertain';
-  const differ = result.comparison.filter((r) => r.match === false).length;
+  // Count each field once, whether its mismatch shows in the comparison or only in a finding's evidence.
+  const differ = new Set([...result.comparison, ...result.reasons.flatMap((f) => f.evidence)].filter((r) => r.match === false).map((r) => r.field)).size;
   const [tab, setTab] = useState('compare');
 
   const actions =
@@ -197,7 +198,7 @@ export function VerdictScreen({
         <Button block onClick={onEdit}>
           {result.registrationNumber ? 'Check the number again' : 'Add the NAFDAC number'}
         </Button>
-        <Button block variant="ghost" className="h-10" onClick={onReport}>
+        <Button block variant="ghost" className="h-11" onClick={onReport}>
           Report to NAFDAC
         </Button>
       </>
@@ -206,7 +207,7 @@ export function VerdictScreen({
         <Button block onClick={onReport}>
           Report to NAFDAC
         </Button>
-        <Button block variant="ghost" className="h-10" onClick={onAnother}>
+        <Button block variant="ghost" className="h-11" onClick={onAnother}>
           Check another pack
         </Button>
       </>
@@ -248,7 +249,7 @@ export function VerdictScreen({
         </TabsList>
 
         <TabsContent value="compare" className="-mx-1 flex min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain px-1 pb-1">
-          <ComparisonTable rows={result.comparison} legendRed={LEGEND.red} sourceLabel={result.comparisonSource} />
+          <ComparisonTable rows={result.comparison} legendRed={LEGEND.red} sourceLabel={result.comparisonSource} differ={differ} alerts={result.alertMatches.length} />
           {result.alertMatches.map((a) => (
             <AlertRow key={a.alertNo} alert={a} />
           ))}

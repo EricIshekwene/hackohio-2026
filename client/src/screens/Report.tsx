@@ -130,8 +130,9 @@ export function Report({ input, result, onBack }: { input: StandardizedMedicatio
         <VerdictIcon legend={result.legend} size={22} />
         <span className="flex min-w-0 flex-col">
           <span className="truncate text-body font-medium">{input.fields.productName?.value || 'Unnamed product'}</span>
-          <span className="truncate text-cap text-ink-2 tabular">
-            {result.legend.label} · To {draft?.to ?? 'NAFDAC'} · {draft?.phone ?? '0800-162-3322'}
+          {/* Wraps instead of truncating: the phone number must stay readable at 390px. */}
+          <span className="text-cap text-ink-2 tabular [overflow-wrap:anywhere]">
+            {result.legend.label} · To {draft?.to ?? 'NAFDAC'} · <span className="whitespace-nowrap">{draft?.phone ?? '0800-162-3322'}</span>
           </span>
         </span>
       </div>

@@ -56,5 +56,9 @@ export function recordSpend(model: string, usage: Usage, label: string): number 
 }
 
 export const totalSpend = () => load().totalUsd;
-export const spendLimit = () => Number(process.env.SPEND_LIMIT_USD ?? 30);
+// A typo in SPEND_LIMIT_USD must not switch the budget guard off (NaN >= x is always false).
+export const spendLimit = () => {
+  const n = Number(process.env.SPEND_LIMIT_USD ?? 30);
+  return Number.isFinite(n) ? n : 30;
+};
 export const overLimit = () => totalSpend() >= spendLimit();

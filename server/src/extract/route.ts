@@ -24,6 +24,25 @@ const upload = multer({
 
 const fail = (res: Response, status: number, body: ApiError) => res.status(status).json(body);
 
+// Per-IP cap on AI calls so one visitor can't spend the whole budget. In memory: resets on restart.
+const WINDOW_MS = 60 * 60 * 1000;
+const perHour = () => Number(process.env.EXTRACT_PER_IP_PER_HOUR) || 30;
+const calls = new Map<string, number[]>();
+
+export function takeExtractSlot(ip: string, at = Date.now()): boolean {
+  const recent = (calls.get(ip) ?? []).filter((t) => at - t < WINDOW_MS);
+  if (recent.length >= perHour()) {
+    calls.set(ip, recent);
+    return false;
+  }
+  recent.push(at);
+  calls.set(ip, recent);
+  if (calls.size > 10_000) for (const [k, ts] of calls) if (!ts.some((t) => at - t < WINDOW_MS)) calls.delete(k);
+  return true;
+}
+
+export const resetExtractSlots = () => calls.clear();
+
 export const extractRouter = Router();
 
 extractRouter.get('/extract/status', (_req, res) => {
@@ -50,6 +69,7 @@ extractRouter.post(
     if (files.length > 3) return fail(res, 400, { error: 'invalid_input', message: 'Send at most 3 photos.' });
     if (!aiConfigured()) return fail(res, 404, { error: 'not_found', message: "Photo reading isn't switched on." });
     if (overLimit()) return fail(res, 429, { error: 'server_error', message: 'Photo reading is paused (AI budget reached).' });
+    if (!takeExtractSlot(req.ip ?? 'unknown')) return fail(res, 429, { error: 'server_error', message: 'Too many photos from this device. Type the details from the pack instead, or try again later.' });
 
     let images: Buffer[];
     try {

@@ -63,8 +63,11 @@ function strength(raw: string): Cleaned {
   const { text, swapped } = base(raw);
   const parts = text.toLowerCase().split(/\s*(?:\/|\+|&|;|,(?!\d)|\band\b)\s*/).filter(Boolean);
   const parsed = parts.map((p) => {
-    const m = p.match(/^(\d+(?:[.,]\d+)?)\s*(mg|mcg|µg|μg|ug|g|ml|iu|%)?$/);
-    return m ? { n: m[1].replace(',', '.'), unit: m[2] ? (UNIT_MAP[m[2]] ?? m[2]) : null } : null;
+    const m = p.match(/^(\d{1,3}(?:,\d{3})+|\d+(?:[.,]\d+)?)\s*(mg|mcg|µg|μg|ug|g|ml|iu|%)?$/);
+    if (!m) return null;
+    // "100,000 IU" is a thousands comma; "2,5 mg" a decimal comma.
+    const n = /^\d{1,3}(,\d{3})+$/.test(m[1]) ? m[1].replace(/,/g, '') : m[1].replace(',', '.');
+    return { n, unit: m[2] ? (UNIT_MAP[m[2]] ?? m[2]) : null };
   });
   const lastUnit = [...parsed].reverse().find((p) => p?.unit)?.unit ?? null;
   if (!parsed.length || parsed.some((p) => !p) || !lastUnit) {
@@ -83,7 +86,7 @@ function batchNo(raw: string): Cleaned {
 
 function expiryDate(raw: string): Cleaned {
   const { text, swapped } = base(raw);
-  const value = text.replace(/^(exp(iry)?(\.|\s)*(date)?|use by|use before|best before)\s*[:.]?\s*/i, '').trim();
+  const value = text.replace(/^(exp(iry|ires|iration)?(\.|\s)*(date)?|use by|use before|best before)\s*[:.]?\s*/i, '').trim();
   const formatOk = !!value && parsePackDate(value) !== null;
   return { value: value || null, formatOk, changedChars: swapped, notes: formatOk ? [] : ["couldn't read the expiry date"] };
 }

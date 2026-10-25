@@ -14,10 +14,30 @@ function fail(res: Response, status: number, body: ApiError) {
   res.status(status).json(body);
 }
 
+const MAX_REPORT_TEXT = 1000;
+
+// The optional free-text parts of a report: strings only, bounded.
+function validateReportExtras(body: ReportRequest | undefined): string[] {
+  const errors: string[] = [];
+  const text = (name: string, v: unknown) => {
+    if (v === undefined || v === null) return;
+    if (typeof v !== 'string') errors.push(`${name} must be a string`);
+    else if (v.length > MAX_REPORT_TEXT) errors.push(`${name} must be at most ${MAX_REPORT_TEXT} characters`);
+  };
+  const reporter = body?.reporter as unknown;
+  if (reporter !== undefined && reporter !== null && typeof reporter !== 'object') errors.push('reporter must be an object');
+  else if (reporter) for (const k of ['name', 'phone', 'location'] as const) text(`reporter.${k}`, (reporter as Record<string, unknown>)[k]);
+  text('whereBought', body?.whereBought);
+  text('notes', body?.notes);
+  return errors;
+}
+
 export function createApp(opts: { dataset?: Dataset; now?: () => Date } = {}) {
   const ds = () => opts.dataset ?? getDataset();
   const now = opts.now ?? (() => new Date());
   const app = express();
+  // Behind one hosting proxy (Railway/Render), so req.ip is the visitor, not the proxy. Set TRUST_PROXY=0 when exposed directly.
+  app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 1));
   app.use(express.json({ limit: '1mb' }));
 
   // Dev CORS for the Vite client (prod serves the client from this same origin).
@@ -56,10 +76,14 @@ export function createApp(opts: { dataset?: Dataset; now?: () => Date } = {}) {
   app.post('/api/report', async (req, res) => {
     const body = req.body as ReportRequest;
     const v = validateInput(body?.input);
-    if (!v.ok || !body.result?.verdict) return fail(res, 400, { error: 'invalid_input', message: 'Send { input, result } from /api/check.', details: v.ok ? ['result missing'] : v.errors });
-    const draft = buildReport(body);
+    const extra = validateReportExtras(body);
+    if (!v.ok || extra.length) return fail(res, 400, { error: 'invalid_input', message: 'Send { input, result } from /api/check.', details: v.ok ? extra : [...v.errors, ...extra] });
+    // Re-run the check rather than trust the posted result: the reasons in the email are always code-produced,
+    // and a stale or hand-made result can't crash the draft.
+    const result = checkMedication(v.input, ds(), now());
+    const draft = buildReport({ ...body, result });
     // Log the draft only: no photos, no reporter contact details.
-    const log = { at: now().toISOString(), verdict: body.result.verdict, rules: body.result.reasons.map((r) => r.rule), fields: Object.fromEntries(Object.entries(body.input.fields).map(([k, f]) => [k, f?.value ?? null])), location: body.reporter?.location ?? null };
+    const log = { at: now().toISOString(), verdict: result.verdict, rules: result.reasons.map((r) => r.rule), fields: Object.fromEntries(Object.entries(v.input.fields).map(([k, f]) => [k, f?.value ?? null])), location: body.reporter?.location ?? null };
     appendFile(path.join(DATA_DIR, 'reports.ndjson'), `${JSON.stringify(log)}\n`).catch(() => {});
     res.json(draft);
   });

@@ -51,11 +51,16 @@ export function loadDataset(dir = DATA_DIR): Dataset {
   const snapshotFile = path.join(dir, 'registry.json');
   const isSeed = !existsSync(snapshotFile);
   const reg = readJson(isSeed ? path.join(dir, 'seed-registry.json') : snapshotFile);
-  // Greenbook pads names with "##" and marks some with "**"; strip both for display and matching.
-  const products: RegistryRecord[] = (reg.products as RegistryRecord[]).map((p) => ({
-    ...p,
-    productName: p.productName.replace(/[#*]+\s*$/, '').trim(),
-  }));
+  // Greenbook pads names with "##"/"_" and marks some with "**" or a leading "#"; strip them for display and matching.
+  const products: RegistryRecord[] = (reg.products as RegistryRecord[])
+    .filter((p) => p && typeof p.regNo === 'string')
+    .map((p) => ({
+      ...p,
+      productName: String(p.productName ?? '').replace(/^[#*\s]+|[#*_\s]+$/g, ''),
+      applicant: String(p.applicant ?? ''),
+      strength: String(p.strength ?? ''),
+      status: String(p.status ?? 'unknown'),
+    }));
 
   const byRegNo = new Map<string, RegistryRecord[]>();
   for (const p of products) push(byRegNo, regNoKey(p.regNo), p);

@@ -8,7 +8,8 @@ export function normalizeRegNo(raw: string | null | undefined): string | null {
   // Labels only as whole words, so a misread inside the number ("A4-NO12") isn't silently cut out.
   s = s.replace(/\b(NAFDAC|REG(ISTRATION)?(NO)?|NO|NUMBER)\b\.?|[:#]/g, ' ');
   s = s.replace(/[‐-―_.\/\\ ]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-  if (!s) return null;
+  // "N/A", "none", "NA": every NAFDAC number has digits, so text without any isn't a number.
+  if (!/\d/.test(s)) return null;
   // O<->0: a letter O is only ever a misread zero, except where a letter is legal (first char).
   // A leading O followed by a digit is also a zero ("O4-1234" -> "04-1234").
   const chars = s.split('');
@@ -53,7 +54,14 @@ export function companyTokens(raw: string | null | undefined): string[] {
   return normalizeText(raw).split(' ').filter((t) => t.length > 1 && !COMPANY_NOISE.has(t));
 }
 
-const NAME_NOISE = new Set(['tablet', 'tablets', 'tab', 'tabs', 'capsule', 'capsules', 'caps', 'mg', 'ml', 'syrup', 'suspension', 'injection']);
+const NAME_NOISE = new Set([
+  'tablet', 'tablets', 'tab', 'tabs', 'capsule', 'capsules', 'caps', 'caplet', 'caplets', 'mg', 'ml', 'mcg',
+  'syrup', 'suspension', 'injection', 'cream', 'ointment', 'gel', 'lotion', 'drops', 'powder', 'solution',
+  'infusion', 'sachet', 'sachets', 'granules', 'oral', 'film', 'coated', 'dispersible', 'forte', 'plus',
+  'extra', 'ultra', 'junior', 'adult', 'paediatric', 'pediatric', 'for', 'and', 'with',
+  // Pharmacopoeia suffixes printed after ingredient names ("Paracetamol BP"); never in the registry's ingredient.
+  'bp', 'usp', 'ep', 'ip', 'nf', 'ph', 'eur',
+]);
 
 export function nameTokens(raw: string | null | undefined): string[] {
   return normalizeText(raw).split(' ').filter((t) => t.length > 1 && !NAME_NOISE.has(t) && !/^\d+$/.test(t));
@@ -63,12 +71,14 @@ export function nameTokens(raw: string | null | undefined): string[] {
 export function strengthNumbers(raw: string | null | undefined): number[] {
   if (!raw) return [];
   const out: number[] = [];
-  const re = /(\d+(?:\.\d+)?)\s*(mcg|µg|mg|g|ml|iu|%)?/gi;
+  // "100,000 IU" is one number; "2,5 mg" is a decimal comma.
+  const re = /(\d{1,3}(?:,\d{3})+(?!\d)|\d+(?:[.,]\d+)?)\s*(mcg|µg|μg|ug|mg|g|ml|iu|%)?/gi;
   for (const m of raw.matchAll(re)) {
-    let n = parseFloat(m[1]);
+    const num = /^\d{1,3}(,\d{3})+$/.test(m[1]) ? m[1].replace(/,/g, '') : m[1].replace(',', '.');
+    let n = parseFloat(num);
     const unit = (m[2] ?? '').toLowerCase();
     if (unit === 'g') n *= 1000;
-    if (unit === 'mcg' || unit === 'µg') n /= 1000;
+    if (unit === 'mcg' || unit === 'µg' || unit === 'μg' || unit === 'ug') n /= 1000;
     out.push(n);
   }
   return out;

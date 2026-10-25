@@ -14,7 +14,7 @@ const LABELS: Partial<Record<FieldKey, string>> = {
   strength: 'Strength',
 };
 
-export const landingReady = (page: Page) => page.getByRole('heading', { name: 'Check a medicine pack against NAFDAC records' });
+export const landingReady = (page: Page) => page.getByRole('heading', { name: /^Check a medicine pack/ });
 
 export async function openLanding(rec: Recorder) {
   await rec.goto('/', landingReady(rec.page));

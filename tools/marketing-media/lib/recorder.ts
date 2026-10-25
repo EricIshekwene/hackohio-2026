@@ -135,7 +135,9 @@ export class Recorder {
   // Load a route with the clock paused and nothing captured, until `ready` is drawn (a hard cut).
   async goto(url: string, ready: Locator) {
     await this.page.goto(new URL(url, APP_URL).toString());
-    await this.page.clock.pauseAt(new Date(CLOCK_ISO).getTime() + 500);
+    // A slow load can run the page clock past the usual pause point; pause just ahead of wherever it is.
+    const now = await this.page.evaluate(() => Date.now());
+    await this.page.clock.pauseAt(Math.max(new Date(CLOCK_ISO).getTime() + 500, now + 50));
     for (let i = 0; i < 200; i++) {
       await this.page.clock.runFor(50);
       await this.networkQuiet();

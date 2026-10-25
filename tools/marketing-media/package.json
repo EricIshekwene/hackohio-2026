@@ -9,6 +9,7 @@
     "media:videos": "tsx cli/videos.ts",
     "media:images": "tsx cli/images.ts",
     "media:gallery": "tsx cli/gallery.ts",
+    "media:publish": "tsx cli/publish.ts",
     "media:all": "tsx cli/shots.ts && tsx cli/videos.ts && tsx cli/images.ts && tsx cli/gallery.ts",
     "test": "tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit"

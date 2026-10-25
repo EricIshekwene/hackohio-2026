@@ -51,7 +51,7 @@ const shotsJson = path.join(OUT, 'screenshots/shots.json');
 if (fs.existsSync(shotsJson)) {
   for (const s of JSON.parse(fs.readFileSync(shotsJson, 'utf8'))) {
     if (!exists(s.webp)) continue;
-    items.push({ kind: 'shot', id: s.id, title: s.caption, caption: s.pack ? `Pack: ${s.pack}` : '', file: s.webp, extra: [s.png], verdict: s.id === 'S07' ? undefined : s.verdict, meta: `${s.device === 'phone' ? 'Phone' : 'Laptop'} · PNG ${s.width}×${s.height} · ${kb(size(s.png))}` });
+    items.push({ kind: 'shot', id: s.id, title: s.caption, caption: s.pack ? `Pack: ${s.pack}` : '', file: s.webp, extra: [s.png], verdict: ['S07', 'S16'].includes(s.id) ? undefined : s.verdict, meta: `${s.device === 'phone' ? 'Phone' : 'Laptop'} · PNG ${s.width}×${s.height} · ${kb(size(s.png))}` });
   }
 }
 

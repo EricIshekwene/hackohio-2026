@@ -1,13 +1,13 @@
 import type { ExtractionInfo, FieldKey, StandardizedMedicationInput, VerificationResult } from '@shared/types';
 import { emptyFields, type Fields } from '@/lib/fields';
-import type { Photo, ShotId } from '@/lib/shots';
+import { MAX_PHOTOS, type Photo } from '@/lib/photos';
 
 export type Screen = 'landing' | 'snap' | 'read' | 'confirm' | 'checking' | 'verdict' | 'report';
 
 export interface State {
   screen: Screen;
   source: 'photo' | 'manual';
-  photos: Photo[]; // the shot set; kept on the typed path so the user can copy from it
+  photos: Photo[]; // 1–3 photos of the pack, in the order taken; kept on the typed path so the user can copy from them
   extraction: ExtractionInfo | null; // how the read went (glare, blur…), from /api/extract
   fields: Fields;
   reviewed: FieldKey[]; // low-confidence rows the user confirmed with "Looks right"
@@ -35,8 +35,8 @@ export const initialState: State = {
 export type Action =
   | { type: 'go'; screen: Screen }
   | { type: 'startManual'; prefill?: StandardizedMedicationInput; keepPhoto?: boolean }
-  | { type: 'setPhoto'; photo: Photo }
-  | { type: 'removePhoto'; shot: ShotId }
+  | { type: 'addPhoto'; photo: Photo }
+  | { type: 'removePhoto'; id: string }
   | { type: 'readPhotos' }
   | { type: 'photoRead'; input: StandardizedMedicationInput; extraction: ExtractionInfo | null }
   | { type: 'readFailed'; error: string }
@@ -71,16 +71,16 @@ export function reducer(state: State, action: Action): State {
         error: null,
       };
     }
-    case 'setPhoto': {
-      // A retake replaces that shot only.
-      const old = state.photos.find((p) => p.shot === action.photo.shot);
-      if (old && old.url !== action.photo.url) URL.revokeObjectURL(old.url);
-      return { ...state, photos: [...state.photos.filter((p) => p.shot !== action.photo.shot), action.photo], error: null };
-    }
+    case 'addPhoto':
+      if (state.photos.length >= MAX_PHOTOS) {
+        URL.revokeObjectURL(action.photo.url);
+        return state;
+      }
+      return { ...state, photos: [...state.photos, action.photo], error: null };
     case 'removePhoto': {
-      const old = state.photos.find((p) => p.shot === action.shot);
+      const old = state.photos.find((p) => p.id === action.id);
       if (old) URL.revokeObjectURL(old.url);
-      return { ...state, photos: state.photos.filter((p) => p.shot !== action.shot) };
+      return { ...state, photos: state.photos.filter((p) => p.id !== action.id) };
     }
     case 'readPhotos':
       return state.photos.length ? { ...state, screen: 'read', source: 'photo', error: null } : state;

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Camera, CameraOff, Check, ImageUp, Keyboard, RotateCcw, X } from 'lucide-react';
+import { ArrowRight, Camera, CameraOff, ImageUp, Keyboard, Plus, Trash2, X } from 'lucide-react';
 import { resizeImage } from '@/lib/image';
 import { useCamera, type CameraStatus } from '@/lib/camera';
-import { SHOTS, type Photo } from '@/lib/shots';
+import { MAX_PHOTOS, newPhoto, type Photo } from '@/lib/photos';
 import { Button } from '@/components/ui/button';
 import { Shell, type StepInfo } from '@/components/app-shell';
 import { cn } from '@/lib/utils';
@@ -27,11 +27,11 @@ export function CaptureFrame({ children, className }: { children?: React.ReactNo
   );
 }
 
-// What the frame says when there is no live picture, and the one action that moves things on.
+// What the frame says when there is no live picture.
 const BLOCKED: Partial<Record<CameraStatus, { title: string; body: string; retry: boolean }>> = {
   denied: {
     title: 'Camera is blocked',
-    body: 'To allow it, tap the icon next to the address bar, choose Camera, then Allow. Or take it with your camera app, or choose photos you already have.',
+    body: 'To allow it, tap the icon next to the address bar, choose Camera, then Allow. Or take photos with your camera app, or choose ones you already have.',
     retry: true,
   },
   busy: { title: 'The camera is busy', body: 'Another app is using it. Close that app, then try again.', retry: true },
@@ -48,106 +48,87 @@ export function Snap({
   step,
   photos,
   onBack,
-  onPhoto,
+  onAdd,
+  onRemove,
   onRead,
   onManual,
 }: {
   step: StepInfo;
   photos: Photo[]; // kept in app state, so Back from Read or Confirm shows them again
   onBack: () => void;
-  onPhoto: (photo: Photo) => void;
+  onAdd: (photo: Photo) => void;
+  onRemove: (id: string) => void;
   onRead: () => void;
   onManual: () => void;
 }) {
   const { videoRef, status, start, capture } = useCamera();
   const nativeRef = useRef<HTMLInputElement>(null);
-  const uploadRef = useRef<HTMLInputElement>(null);
-  const has = (i: number) => photos.some((p) => p.shot === SHOTS[i].id);
-  const firstEmpty = () => SHOTS.findIndex((_, i) => !has(i));
-  const [current, setCurrent] = useState(() => {
-    const i = firstEmpty();
-    return i === -1 ? 0 : i;
-  });
-  const [retake, setRetake] = useState(false);
+  const libraryRef = useRef<HTMLInputElement>(null);
+  const [viewing, setViewing] = useState<string | null>(null); // a photo opened from the strip
   const [flash, setFlash] = useState(false);
   const [announce, setAnnounce] = useState('');
+  const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [note, setNote] = useState<string | null>(null); // not an error: e.g. more photos picked than a pack takes
 
-  const shot = SHOTS[current];
-  const taken = photos.find((p) => p.shot === shot.id);
-  const showTaken = !!taken && !retake;
+  const count = photos.length;
+  const full = count >= MAX_PHOTOS;
+  const room = MAX_PHOTOS - count;
+  const open = photos.find((p) => p.id === viewing) ?? null;
   const live = status === 'live';
   const blocked = BLOCKED[status];
-  const allTaken = photos.length === SHOTS.length;
 
-  // After a shot, move to the next empty one; when the set is full, stay and show the last photo.
-  function advance(from: number, justTaken: Set<number>) {
-    const next = SHOTS.findIndex((_, i) => i !== from && !has(i) && !justTaken.has(i));
-    setRetake(false);
-    if (next !== -1) setCurrent(next);
-  }
-
-  function keep(blob: Blob, index: number) {
-    onPhoto({ shot: SHOTS[index].id, blob, url: URL.createObjectURL(blob) });
+  function reset() {
+    setError(null);
+    setNote(null);
   }
 
   async function shoot() {
-    setError(null);
-    setNote(null);
+    reset();
+    if (full) return;
     if (status === 'idle') return start();
     if (!live) return nativeRef.current?.click();
     const blob = await capture();
     if (!blob) return setError("That didn't work. Try again, or choose a photo.");
     setFlash(true);
     setTimeout(() => setFlash(false), 180);
-    keep(blob, current);
-    const next = SHOTS.findIndex((_, i) => i !== current && !has(i));
-    setAnnounce(`${shot.label} photo taken.${next !== -1 ? ` Next: ${SHOTS[next].title}.` : ''}`);
-    advance(current, new Set([current]));
+    onAdd(newPhoto(blob));
+    setAnnounce(`Photo ${count + 1} added.`);
   }
 
-  // Library or camera-app photos fill the selected shot, then the empty ones, in shot order. A shot that's
-  // already taken is never overwritten by a multi-pick; tap it and choose again to replace it.
+  // Library or camera-app photos fill the free slots; never more than a pack takes.
   async function handleFiles(list: FileList | null) {
     const files = [...(list ?? [])];
     if (nativeRef.current) nativeRef.current.value = '';
-    if (uploadRef.current) uploadRef.current.value = '';
+    if (libraryRef.current) libraryRef.current.value = '';
     if (!files.length) return;
-    setError(null);
-    setNote(null);
-    const slots = [current, ...SHOTS.map((_, i) => i).filter((i) => i !== current && !has(i))];
-    const filled = new Set<number>();
+    reset();
+    let added = 0;
     let unreadable = 0;
     for (const file of files) {
-      if (filled.size === slots.length) break;
+      if (added === room) break;
       try {
-        const blob = await resizeImage(file);
-        const slot = slots[filled.size];
-        keep(blob, slot);
-        filled.add(slot);
+        onAdd(newPhoto(await resizeImage(file)));
+        added++;
       } catch {
         unreadable++;
       }
     }
-    const extra = files.length - filled.size - unreadable;
     if (unreadable) setError(`${unreadable === 1 ? "One file isn't a photo" : `${unreadable} files aren't photos`} we can open. Try another, or type the details.`);
-    else if (extra > 0)
-      setNote(
-        slots.length === SHOTS.length
-          ? `A pack takes up to ${SHOTS.length} photos, so we kept the first ${SHOTS.length}.`
-          : `Added ${filled.size}. To swap a photo you already have, tap it, then choose again.`,
-      );
-    if (filled.size) {
-      setAnnounce(`Added ${filled.size} photo${filled.size === 1 ? '' : 's'}: ${[...filled].map((i) => SHOTS[i].label).join(', ')}.`);
-      advance(current, filled);
-    }
+    else if (files.length > added) setNote(`A pack takes up to ${MAX_PHOTOS} photos, so we added the first ${added}.`);
+    if (added) setAnnounce(`Added ${added} photo${added === 1 ? '' : 's'}.`);
   }
 
-  // Hardware keyboards and desktop demos: space or enter takes the photo.
+  function remove(id: string) {
+    reset();
+    onRemove(id);
+    setViewing(null);
+    setAnnounce('Photo removed.');
+  }
+
+  // Desktop demos: space takes the photo.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === ' ' && live && !showTaken && document.activeElement === document.body) {
+      if (e.key === ' ' && live && !open && !full && document.activeElement === document.body) {
         e.preventDefault();
         shoot();
       }
@@ -156,42 +137,51 @@ export function Snap({
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  const count = photos.length;
-  const readLabel = `Read ${count} photo${count === 1 ? '' : 's'}`;
+  const readButton = (
+    <Button block className="bg-white text-ink hover:bg-white/90" onClick={onRead}>
+      Read pack
+      <span className="font-normal text-ink-3">
+        {count} photo{count === 1 ? '' : 's'}
+      </span>
+    </Button>
+  );
 
   return (
     <Shell
       stage
       step={step}
       onBack={onBack}
-      title={showTaken ? 'Can you read the small print?' : shot.title}
+      title={open ? 'Can you read the small print?' : 'Photograph the pack'}
       description={
-        showTaken
-          ? 'Check the text is sharp and free of glare. Retake it if not.'
-          : `Photo ${current + 1} of 3${current > 0 ? ', optional' : ''}. ${shot.hint}`
+        open
+          ? 'Check the text is sharp and free of glare. Remove it if not.'
+          : `Take 1 to ${MAX_PHOTOS} photos from any side. Include the NAFDAC number and expiry if you can.`
       }
       className="gap-3 pt-4"
       footer={
-        showTaken ? (
+        open ? (
           <>
-            <Button block className="bg-white text-ink hover:bg-white/90" onClick={onRead}>
-              {allTaken ? readLabel : `${readLabel} now`}
-            </Button>
-            {/* Camera and library are always one tap apart, in both directions. */}
+            {readButton}
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="onStage" onClick={() => setRetake(true)}>
-                <RotateCcw strokeWidth={1.75} />
-                Retake
+              <Button variant="onStage" onClick={() => remove(open.id)}>
+                <Trash2 strokeWidth={1.75} />
+                Remove
               </Button>
-              <Button variant="onStage" onClick={() => uploadRef.current?.click()}>
-                <ImageUp strokeWidth={1.75} />
-                Choose photo
+              <Button variant="onStage" onClick={() => setViewing(null)}>
+                <Camera strokeWidth={1.75} />
+                {full ? 'Done' : 'Back to camera'}
               </Button>
             </div>
           </>
+        ) : full ? (
+          <>
+            {readButton}
+            <p className="text-center text-cap text-white/65">That's the most we read at once. Tap a photo to check or remove it.</p>
+          </>
         ) : (
           <div className="grid grid-cols-3 items-center pb-1">
-            <button type="button" onClick={() => uploadRef.current?.click()} className="flex flex-col items-center gap-1.5 text-cap text-white/75 hover:text-white">
+            {/* Camera and library are always one tap apart, in both directions. */}
+            <button type="button" onClick={() => libraryRef.current?.click()} className="flex flex-col items-center gap-1.5 text-cap text-white/75 hover:text-white">
               <span className="grid size-11 place-items-center rounded-full bg-white/12">
                 <ImageUp className="size-5" strokeWidth={1.75} />
               </span>
@@ -199,7 +189,7 @@ export function Snap({
             </button>
             <button
               type="button"
-              aria-label={status === 'idle' ? 'Turn on the camera' : `Take photo: ${shot.title}`}
+              aria-label={status === 'idle' ? 'Turn on the camera' : 'Take photo'}
               onClick={shoot}
               disabled={status === 'starting'}
               className="mx-auto grid size-[76px] place-items-center rounded-full border-[3px] border-white/90 transition-transform active:scale-95 disabled:opacity-40"
@@ -207,11 +197,11 @@ export function Snap({
               <span className="grid size-[60px] place-items-center rounded-full bg-white text-ink">{status === 'idle' && <Camera className="size-6" strokeWidth={1.75} />}</span>
             </button>
             {count > 0 ? (
-              <button type="button" onClick={onRead} className="flex flex-col items-center gap-1.5 text-cap text-white hover:text-white">
+              <button type="button" onClick={onRead} className="flex flex-col items-center gap-1.5 text-cap text-white">
                 <span className="grid size-11 place-items-center rounded-full bg-white text-ink">
                   <ArrowRight className="size-5" strokeWidth={2} />
                 </span>
-                {readLabel}
+                Read pack
               </button>
             ) : (
               <button type="button" onClick={onManual} className="flex flex-col items-center gap-1.5 text-cap text-white/75 hover:text-white">
@@ -226,86 +216,102 @@ export function Snap({
       }
     >
       <input ref={nativeRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
-      <input ref={uploadRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+      <input ref={libraryRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
 
       <CaptureFrame>
         {/* Always mounted so the stream has somewhere to go the moment it starts. */}
-        <video ref={videoRef} playsInline muted autoPlay aria-hidden="true" className={cn('absolute inset-0 size-full object-cover', (!live || showTaken) && 'invisible')} />
-        {showTaken && <img src={taken.url} alt={`Your photo: ${shot.title}`} className="absolute inset-0 size-full bg-stage object-contain" />}
-        {!showTaken && !live && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-8 text-center">
-            {status === 'idle' ? (
-              <>
-                <span className="grid size-12 place-items-center rounded-full bg-white/12">
-                  <Camera className="size-6" strokeWidth={1.75} />
-                </span>
-                <p className="text-body font-medium">Use your camera to photograph the pack</p>
-                <p className="text-foot text-white/65">Your browser will ask first. Photos are only used to read the label and are never stored.</p>
-                <Button className="mt-1 bg-white text-ink hover:bg-white/90" onClick={start}>
-                  Allow camera
-                </Button>
-              </>
-            ) : status === 'starting' ? (
-              <>
-                <span className="size-6 animate-spin rounded-full border-2 border-white/25 border-t-white" aria-hidden="true" />
-                <p className="text-foot text-white/75">Starting the camera…</p>
-              </>
-            ) : (
-              blocked && (
+        <video ref={videoRef} playsInline muted autoPlay aria-hidden="true" className={cn('absolute inset-0 size-full object-cover', (!live || open || full) && 'invisible')} />
+        {open ? (
+          <img src={open.url} alt="Your photo of the pack" className="absolute inset-0 size-full bg-stage object-contain" />
+        ) : full ? (
+          <div className="absolute inset-0 grid grid-cols-3 gap-1 bg-stage">
+            {photos.map((p) => (
+              <img key={p.id} src={p.url} alt="" className="size-full object-cover" />
+            ))}
+          </div>
+        ) : (
+          !live && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-8 text-center">
+              {status === 'idle' ? (
                 <>
                   <span className="grid size-12 place-items-center rounded-full bg-white/12">
-                    <CameraOff className="size-6" strokeWidth={1.75} />
+                    <Camera className="size-6" strokeWidth={1.75} />
                   </span>
-                  <p className="text-body font-medium">{blocked.title}</p>
-                  <p className="text-foot text-white/65">{blocked.body}</p>
-                  {blocked.retry && (
-                    <Button variant="onStage" className="mt-1" onClick={start}>
-                      Try again
-                    </Button>
-                  )}
+                  <p className="text-body font-medium">Use your camera to photograph the pack</p>
+                  <p className="text-foot text-white/65">Your browser will ask first. Photos are only used to read the label and are never stored.</p>
+                  <Button className="mt-1 bg-white text-ink hover:bg-white/90" onClick={start}>
+                    Allow camera
+                  </Button>
                 </>
-              )
-            )}
-          </div>
+              ) : status === 'starting' ? (
+                <>
+                  <span className="size-6 animate-spin rounded-full border-2 border-white/25 border-t-white" aria-hidden="true" />
+                  <p className="text-foot text-white/75">Starting the camera…</p>
+                </>
+              ) : (
+                blocked && (
+                  <>
+                    <span className="grid size-12 place-items-center rounded-full bg-white/12">
+                      <CameraOff className="size-6" strokeWidth={1.75} />
+                    </span>
+                    <p className="text-body font-medium">{blocked.title}</p>
+                    <p className="text-foot text-white/65">{blocked.body}</p>
+                    {blocked.retry && (
+                      <Button variant="onStage" className="mt-1" onClick={start}>
+                        Try again
+                      </Button>
+                    )}
+                  </>
+                )
+              )}
+            </div>
+          )
         )}
-        {live && !showTaken && (
-          <span className="absolute top-4 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1 text-cap font-medium whitespace-nowrap backdrop-blur">
-            {shot.title}
+        {live && !open && !full && (
+          <span className="absolute top-4 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1 text-cap font-medium whitespace-nowrap backdrop-blur tabular">
+            Photo {count + 1} of up to {MAX_PHOTOS}
           </span>
         )}
         <span aria-hidden="true" className={cn('pointer-events-none absolute inset-0 bg-white transition-opacity duration-150', flash ? 'opacity-70' : 'opacity-0')} />
       </CaptureFrame>
 
-      {/* The set: tap a shot to take it or look at it again. */}
-      <div className="grid grid-cols-3 gap-2" role="group" aria-label="Photos of the pack">
-        {SHOTS.map((s, i) => {
-          const p = photos.find((x) => x.shot === s.id);
-          const selected = i === current;
+      {/* The photos so far: tap one to check it, × to remove it; the next empty slot adds from your photos. */}
+      <div className="grid grid-cols-3 gap-2" role="group" aria-label={`Photos of the pack, ${count} of ${MAX_PHOTOS}`}>
+        {Array.from({ length: MAX_PHOTOS }, (_, i) => {
+          const p = photos[i];
+          if (p)
+            return (
+              <div key={p.id} className="relative">
+                <button
+                  type="button"
+                  aria-label={`View photo ${i + 1}`}
+                  aria-pressed={viewing === p.id}
+                  onClick={() => setViewing(viewing === p.id ? null : p.id)}
+                  className={cn('block h-14 w-full overflow-hidden rounded-md', viewing === p.id ? 'shadow-[0_0_0_2px_white]' : 'shadow-[0_0_0_1px_rgba(255,255,255,.18)]')}
+                >
+                  <img src={p.url} alt="" className="size-full object-cover" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Remove photo ${i + 1}`}
+                  onClick={() => remove(p.id)}
+                  className="absolute -top-1.5 -right-1.5 grid size-6 place-items-center rounded-full bg-white text-ink shadow"
+                >
+                  <X className="size-3.5" strokeWidth={2.5} />
+                </button>
+              </div>
+            );
+          const next = i === count;
           return (
             <button
-              key={s.id}
+              key={`empty-${i}`}
               type="button"
-              aria-pressed={selected}
-              aria-label={`${s.title}${p ? ', taken' : i > 0 ? ', optional' : ''}`}
-              onClick={() => {
-                setCurrent(i);
-                setRetake(false);
-              }}
-              className={cn('flex items-center gap-2 rounded-md p-1.5 text-left transition-colors', selected ? 'bg-white/14 shadow-[inset_0_0_0_1.5px_rgba(255,255,255,.9)]' : 'bg-white/[0.06] hover:bg-white/10')}
+              disabled={!next}
+              aria-label={next ? 'Add from your photos' : 'Empty'}
+              onClick={() => libraryRef.current?.click()}
+              className={cn('grid h-14 place-items-center rounded-md border border-dashed text-white/60', next ? 'border-white/40 hover:bg-white/[0.06]' : 'border-white/15')}
             >
-              <span className="relative grid size-9 shrink-0 place-items-center overflow-hidden rounded-[6px] bg-white/10 text-cap font-semibold">
-                {p ? (
-                  <>
-                    <img src={p.url} alt="" className="size-full object-cover" />
-                    <span className="absolute right-0.5 bottom-0.5 grid size-3.5 place-items-center rounded-full bg-white text-ink">
-                      <Check className="size-2.5" strokeWidth={3} />
-                    </span>
-                  </>
-                ) : (
-                  i + 1
-                )}
-              </span>
-              <span className={cn('min-w-0 text-cap leading-[14px]', selected ? 'text-white' : 'text-white/70')}>{s.label}</span>
+              {next && <Plus className="size-5" strokeWidth={1.75} />}
             </button>
           );
         })}

@@ -13,7 +13,7 @@ import demoPacks from '@shared/fixtures/demo-packs.json';
 import heroCloned from '@shared/fixtures/hero-cloned.result.json';
 import alert042 from '@shared/fixtures/alert-042.result.json';
 import realGreen from '@shared/fixtures/real-green.result.json';
-import { orderedPhotos, type Photo } from '@/lib/shots';
+import type { Photo } from '@/lib/photos';
 
 // VITE_USE_MOCKS=true serves the backend's own fixture output, so the demo video never depends on the network.
 export const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === 'true';
@@ -101,7 +101,6 @@ export async function draftReport(req: ReportRequest): Promise<ReportDraft> {
 // /api/extract is the middleware's route: 1–3 photos of one pack -> StandardizedMedicationInput.
 // In mock mode it "reads" the hero pack, with one low-confidence field so the review step shows.
 export async function extractFromPhotos(photos: Photo[], signal?: AbortSignal): Promise<{ input: StandardizedMedicationInput; extraction: ExtractionInfo | null }> {
-  const ordered = orderedPhotos(photos);
   if (USE_MOCKS) {
     await delay(1800);
     if (signal?.aborted) throw new RequestError('cancelled', 'Cancelled.');
@@ -116,10 +115,10 @@ export async function extractFromPhotos(photos: Photo[], signal?: AbortSignal): 
     }
     if (input.fields.batchNo) input.fields.batchNo.notes = ['AI\'s value differs from the printed text "BATCH N0: GL22I0"'];
     const sides = ['front', 'back', 'side'] as const;
-    return { input, extraction: { photoStatus: 'ok', sidesSeen: ordered.map((_, i) => ({ photo: i + 1, side: sides[i] })), model: 'mock', costUsd: 0 } };
+    return { input, extraction: { photoStatus: 'ok', sidesSeen: photos.map((_, i) => ({ photo: i + 1, side: sides[i] })), model: 'mock', costUsd: 0 } };
   }
   const form = new FormData();
-  ordered.forEach((p) => form.append('photos', p.blob, `${p.shot}.jpg`));
+  photos.forEach((p, i) => form.append('photos', p.blob, `photo-${i + 1}.jpg`));
   // Reading takes ~6–15 s (one AI call for the whole set), so give it more room than the other endpoints.
   const { extraction, ...input } = await request<ExtractResponse>('/api/extract', { method: 'POST', body: form }, EXTRACT_TIMEOUT_MS, signal);
   return { input: { ...input, source: 'photo', confirmedByUser: false }, extraction: extraction ?? null };

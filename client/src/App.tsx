@@ -120,7 +120,8 @@ export default function App() {
             step={step!}
             photos={state.photos}
             onBack={back}
-            onPhoto={(photo) => dispatch({ type: 'setPhoto', photo })}
+            onAdd={(photo) => dispatch({ type: 'addPhoto', photo })}
+            onRemove={(id) => dispatch({ type: 'removePhoto', id })}
             onRead={() => dispatch({ type: 'readPhotos' })}
             onManual={() => dispatch({ type: 'startManual' })}
           />

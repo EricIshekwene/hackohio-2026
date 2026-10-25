@@ -14,7 +14,7 @@ npm run dev:phone    # HTTPS on your LAN (self-signed, accept once) so a phone g
 
 - `VITE_USE_MOCKS=true` serves the backend's own fixture output (and runs the server's report builder), so the demo never depends on the network. Mock mode only knows the three demo packs; the photo path "reads" the hero pack.
 - `VITE_API_URL` overrides the API origin (default: same origin).
-- Snap is a live `getUserMedia` preview (asks for permission first; handles blocked, busy, no camera and http) and takes up to three shots: front, the NAFDAC number, batch and expiry. Each shot can come from the camera or the photo library. All of them go to `/api/extract` as `photos` in one call. With no `ANTHROPIC_API_KEY` on the server, Read says photo reading isn't switched on and offers typing.
+- Snap is a live `getUserMedia` preview (asks for permission first; handles blocked, busy, no camera and http) and collects 1 to 3 photos of the pack from any side, from the camera or the photo library (several at once). All of them go to `/api/extract` as `photos` in one call. With no `ANTHROPIC_API_KEY` on the server, Read says photo reading isn't switched on and offers typing.
 - Screens: Start → Snap → Read → Confirm → Checking → Result (Compare / Why / Checked tabs) → Report. The typed path is Type → Check → Result. Browser back steps back through the flow. State is one `useReducer` in `src/state.ts`.
 - Demo packs show on the start screen only in mock mode.
 - The client never decides or rewrites a verdict: headline, label, summary, reasons and colours are rendered from `/api/check` as sent.

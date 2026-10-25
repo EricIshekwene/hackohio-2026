@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetBody, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Shell, type StepInfo } from '@/components/app-shell';
-import { orderedPhotos, shotLabel, type Photo } from '@/lib/shots';
+import type { Photo } from '@/lib/photos';
 import { cn } from '@/lib/utils';
 
 // The server's own read of the photo quality, said once where the user looks at the photos.
@@ -99,7 +99,7 @@ export function Confirm({
   onCheck: () => void;
 }) {
   const attestId = useId();
-  const shown = orderedPhotos(photos);
+  const shown = photos;
   const photoNote = source === 'photo' && extraction ? PHOTO_NOTE[extraction.photoStatus] : undefined;
   const required = FIELD_DEFS.filter((d) => !d.optional);
   const optional = FIELD_DEFS.filter((d) => d.optional);
@@ -164,7 +164,7 @@ export function Confirm({
           <SheetTrigger className="flex items-center gap-3 rounded-md px-1 text-left">
             <span className="flex shrink-0 -space-x-5">
               {shown.map((p) => (
-                <img key={p.shot} src={p.url} alt="" className="size-11 rounded-sm object-cover shadow-[0_0_0_1.5px_white,0_0_0_2.5px_var(--color-line)]" />
+                <img key={p.id} src={p.url} alt="" className="size-11 rounded-sm object-cover shadow-[0_0_0_1.5px_white,0_0_0_2.5px_var(--color-line)]" />
               ))}
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
@@ -180,10 +180,7 @@ export function Confirm({
             </SheetHeader>
             <SheetBody>
               {shown.map((p) => (
-                <figure key={p.shot} className="flex flex-col gap-1.5">
-                  <img src={p.url} alt={`Your photo: ${shotLabel(p.shot)}`} className="w-full rounded-md bg-stage object-contain" />
-                  <figcaption className="text-cap text-ink-3">{shotLabel(p.shot)}</figcaption>
-                </figure>
+                <img key={p.id} src={p.url} alt="Your photo of the pack" className="w-full rounded-md bg-stage object-contain" />
               ))}
             </SheetBody>
           </SheetContent>

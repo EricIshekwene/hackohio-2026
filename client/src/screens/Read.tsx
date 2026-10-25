@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Keyboard, RotateCcw } from 'lucide-react';
 import type { ExtractionInfo, StandardizedMedicationInput } from '@shared/types';
 import { extractFromPhotos, RequestError } from '@/lib/api';
-import { orderedPhotos, shotLabel, type Photo } from '@/lib/shots';
+import type { Photo } from '@/lib/photos';
 import { Button } from '@/components/ui/button';
 import { ProgressList, Shell, type StepInfo } from '@/components/app-shell';
 
@@ -41,7 +41,7 @@ export function Read({
 }) {
   const [active, setActive] = useState(0);
   const [attempt, setAttempt] = useState(0);
-  const shown = orderedPhotos(photos);
+  const shown = photos;
 
   // One read per attempt. Leaving the screen aborts it, so a late answer can't pull the user forward.
   useEffect(() => {
@@ -106,7 +106,7 @@ export function Read({
     >
       <div className={`relative grid w-full gap-1 overflow-hidden rounded-lg bg-stage ${shown.length === 1 ? 'aspect-[4/3]' : 'aspect-[16/9]'}`} style={{ gridTemplateColumns: `repeat(${shown.length}, minmax(0, 1fr))` }}>
         {shown.map((p) => (
-          <img key={p.shot} src={p.url} alt={`Your photo: ${shotLabel(p.shot)}`} className={`size-full transition-opacity ${shown.length === 1 ? 'object-contain' : 'object-cover'} ${error ? 'opacity-40' : ''}`} />
+          <img key={p.id} src={p.url} alt="Your photo of the pack" className={`size-full transition-opacity ${shown.length === 1 ? 'object-contain' : 'object-cover'} ${error ? 'opacity-40' : ''}`} />
         ))}
         {!error && <span aria-hidden="true" className="scan-line absolute inset-x-4 top-1/2 h-px bg-white shadow-[0_0_12px_3px_rgba(255,255,255,.55)]" />}
       </div>

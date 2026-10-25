@@ -1,8 +1,41 @@
 import { useEffect, useState } from 'react';
-import { DEMO_PACKS, getMeta, USE_MOCKS, type DemoPackId, type Meta } from '@/lib/api';
-import { formatDate } from '@/lib/format';
+import { Camera, Keyboard } from 'lucide-react';
 import { CAVEAT } from '@shared/legend';
-import { Button, Logo } from '@/components/ui';
+import { DEMO_PACKS, getMeta, USE_MOCKS, type DemoPackId, type Meta } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { DataFooter, Shell } from '@/components/app-shell';
+
+// A pack in the scan frame: the one picture that says what the app does.
+function PackIllustration() {
+  return (
+    <svg viewBox="0 0 320 210" className="h-full w-full" role="img" aria-label="A medicine pack inside a scan frame">
+      <g fill="none" stroke="#0A0C0A" strokeWidth="2.5" strokeLinecap="round">
+        <path d="M44 34V20h14M276 34V20h-14M44 176v14h14M276 176v14h-14" />
+      </g>
+      <g transform="rotate(-4 160 105)">
+        <rect x="74" y="44" width="172" height="122" rx="10" fill="#fff" stroke="#E7E8E5" />
+        <rect x="74" y="44" width="172" height="30" rx="10" fill="#F5F5F3" />
+        <rect x="74" y="64" width="172" height="10" fill="#F5F5F3" />
+        <rect x="90" y="54" width="70" height="9" rx="4.5" fill="#0A0C0A" />
+        <rect x="90" y="88" width="96" height="7" rx="3.5" fill="#52574F" />
+        <rect x="90" y="102" width="62" height="7" rx="3.5" fill="#C9CBC6" />
+        <rect x="88" y="122" width="104" height="22" rx="6" fill="none" stroke="#0D330E" strokeWidth="1.5" strokeDasharray="3 3" />
+        <text x="96" y="137" fontFamily="Geist Variable, sans-serif" fontSize="10.5" fontWeight="600" fill="#0A0C0A">
+          NAFDAC A4-6238
+        </text>
+        <g fill="#0A0C0A">
+          {[0, 3, 5, 9, 11, 14, 18, 20, 23, 27].map((x, i) => (
+            <rect key={x} x={204 + x} y="124" width={i % 3 === 0 ? 2 : 1.2} height="22" />
+          ))}
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+// Demo packs are for the video: always in mock mode, or with ?demo on the real server.
+const SHOW_DEMOS = USE_MOCKS || new URLSearchParams(location.search).has('demo');
 
 export function Landing({ onStart, onManual, onDemo }: { onStart: () => void; onManual: () => void; onDemo: (id: DemoPackId) => void }) {
   const [meta, setMeta] = useState<Meta | null>(null);
@@ -11,57 +44,43 @@ export function Landing({ onStart, onManual, onDemo }: { onStart: () => void; on
   }, []);
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-[430px] flex-col bg-deep px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-[max(18px,env(safe-area-inset-top))] text-paper">
-      <Logo onDark />
-      <div className="rise mt-14 grid gap-5">
-        <div className="flex h-3 max-w-[220px] overflow-hidden rounded-full" aria-hidden="true">
-          {['#F3F6F0', '#6E8649', '#477023', '#2D531A', '#0D330E'].map((c) => (
-            <i key={c} className="flex-1" style={{ background: c }} />
-          ))}
-        </div>
-        <h1 className="text-[46px] font-extrabold leading-[0.95] tracking-[-0.05em]" style={{ fontVariationSettings: '"opsz" 96' }}>
-          Know what <span className="text-sprout">NAFDAC</span> says about your medicine.
-        </h1>
-        <p className="max-w-[34ch] text-[17px] text-on-deep-muted">
-          Snap the pack. We read it, you confirm it, and we check it against NAFDAC's registry and falsified-medicine alerts.
+    <Shell
+      trailing={USE_MOCKS && <Badge variant="outline">Demo data</Badge>}
+      className="pt-3"
+      footer={
+        <>
+          <Button block onClick={onStart}>
+            <Camera strokeWidth={1.75} />
+            Scan a pack
+          </Button>
+          <Button block variant="secondary" onClick={onManual}>
+            <Keyboard strokeWidth={1.75} />
+            Type the details
+          </Button>
+          {SHOW_DEMOS && (<div className="mt-3 flex flex-col gap-2">
+            <p className="text-cap text-ink-3">Or try a demo pack</p>
+            <div className="grid grid-cols-3 divide-x divide-line overflow-hidden rounded-md shadow-[inset_0_0_0_1px_var(--color-line)]">
+              {DEMO_PACKS.map((p) => (
+                <button key={p.id} type="button" onClick={() => onDemo(p.id)} className="h-11 px-1 text-foot font-medium text-ink hover:bg-fill">
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>)}
+          <DataFooter dataAsOf={meta?.dataAsOf} caveat={`${CAVEAT}. MedCheck never says a medicine is genuine or safe.`} className="mt-3" />
+        </>
+      }
+    >
+      <div className="aspect-[320/210] w-full overflow-hidden rounded-lg bg-fill">
+        <PackIllustration />
+      </div>
+      <div className="flex flex-col gap-2 pt-2">
+        <h1 className="text-display font-semibold">Check a medicine pack against NAFDAC records</h1>
+        <p className="text-body text-ink-2">
+          Take a photo of the pack. You confirm what we read, then we check it against the NAFDAC Greenbook and its falsified-medicine alerts.
         </p>
+        <p className="text-foot text-ink-3">Have the pack in your hand. It takes about a minute.</p>
       </div>
-
-      <div className="mt-auto grid gap-3 pt-10">
-        <Button variant="light" onClick={onStart}>
-          <span aria-hidden="true">📷</span> Check a medicine
-        </Button>
-        <button type="button" onClick={onManual} className="min-h-11 text-[15px] font-semibold text-sprout underline underline-offset-4">
-          Type the details instead
-        </button>
-
-        <div className="mt-4 grid gap-2">
-          <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[#9fb394]">Try a demo pack</p>
-          <div className="flex flex-wrap gap-2">
-            {DEMO_PACKS.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => onDemo(p.id)}
-                className="min-h-10 rounded-full border border-moss px-3.5 text-[13px] font-semibold text-mist hover:border-sprout hover:bg-white/5"
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <footer className="mt-4 grid gap-0.5 border-t border-moss pt-3 text-[12px] text-[#9fb394]">
-          {meta && (
-            <p className="tabular">
-              Registry snapshot: {formatDate(meta.dataAsOf.registrySnapshot)} · Last NAFDAC alert: {formatDate(meta.dataAsOf.lastAlert)}
-            </p>
-          )}
-          <p>
-            {CAVEAT}. MedCheck never says a medicine is genuine or safe.{USE_MOCKS && ' · Demo data mode'}
-          </p>
-        </footer>
-      </div>
-    </div>
+    </Shell>
   );
 }

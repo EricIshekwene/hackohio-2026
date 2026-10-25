@@ -1,115 +1,187 @@
-import { useId, useState, type InputHTMLAttributes } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { Copy, Mail, Phone, Share, UserRound } from 'lucide-react';
 import type { ReportDraft, StandardizedMedicationInput, VerificationResult } from '@shared/types';
 import { draftReport, RequestError } from '@/lib/api';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Shell } from '@/components/app-shell';
 import { VerdictIcon } from '@/components/verdict';
-import { Button, Card, SectionLabel } from '@/components/ui';
-import { Shell } from '@/components/Shell';
+import { cn } from '@/lib/utils';
 
-function Field({ label, multiline, value, onChange, ...rest }: { label: string; multiline?: boolean; value: string; onChange: (v: string) => void } & Omit<InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'>) {
+interface Details {
+  name: string;
+  phone: string;
+  location: string;
+  whereBought: string;
+}
+const NO_DETAILS: Details = { name: '', phone: '', location: '', whereBought: '' };
+
+function LabeledInput({ label, value, onChange, ...rest }: { label: string; value: string; onChange: (v: string) => void } & Omit<React.ComponentProps<typeof Input>, 'onChange' | 'value'>) {
   const id = useId();
-  const cls = 'w-full rounded-[10px] border border-line bg-white px-3 text-[16px] focus:border-fern focus:outline-none';
   return (
-    <div className="grid gap-1">
-      <label htmlFor={id} className="text-[13px] font-semibold text-muted">
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-foot font-medium text-ink-2">
         {label}
       </label>
-      {multiline ? (
-        <textarea id={id} value={value} onChange={(e) => onChange(e.target.value)} rows={14} className={`${cls} py-2.5 text-[14.5px] leading-relaxed`} />
-      ) : (
-        <input id={id} value={value} onChange={(e) => onChange(e.target.value)} className={`${cls} min-h-11`} {...rest} />
-      )}
+      <Input id={id} value={value} onChange={(e) => onChange(e.target.value)} {...rest} />
     </div>
   );
 }
 
 export function Report({ input, result, onBack }: { input: StandardizedMedicationInput; result: VerificationResult; onBack: () => void }) {
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [location, setLocation] = useState('');
-  const [whereBought, setWhereBought] = useState('');
   const [draft, setDraft] = useState<ReportDraft | null>(null);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [details, setDetails] = useState<Details>(NO_DETAILS);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stale, setStale] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const started = useRef(false);
+  const subjectId = useId();
+  const bodyId = useId();
 
-  const detail = (set: (v: string) => void) => (v: string) => {
-    set(v);
-    if (draft) setStale(true);
-  };
-
-  async function makeDraft() {
-    setLoading(true);
+  async function makeDraft(d: Details) {
     setError(null);
     try {
-      const d = await draftReport({
+      const next = await draftReport({
         input,
         result,
-        reporter: { name: name || undefined, phone: phone || undefined, location: location || undefined },
-        whereBought: whereBought || undefined,
+        reporter: { name: d.name || undefined, phone: d.phone || undefined, location: d.location || undefined },
+        whereBought: d.whereBought || undefined,
       });
-      setDraft(d);
-      setSubject(d.subject);
-      setBody(d.body);
-      setStale(false);
+      setDraft(next);
+      setSubject(next.subject);
+      setBody(next.body);
     } catch (e) {
       setError(e instanceof RequestError ? e.message : "We couldn't draft the report. Try again.");
-    } finally {
-      setLoading(false);
     }
   }
 
-  // Built from the edited text, so what opens in the mail app is what the user reviewed.
-  const mailto = draft ? `mailto:${draft.to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}` : '#';
+  // Draft straight away; the personal details are optional and can come later.
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    makeDraft(NO_DETAILS);
+  }, []);
+
+  // Add the details without throwing away the user's own edits to the message.
+  async function applyDetails() {
+    setSheetOpen(false);
+    if (draft && body === draft.body && subject === draft.subject) return makeDraft(details);
+    const lines = [
+      details.name && `Name: ${details.name}`,
+      details.phone && `Phone: ${details.phone}`,
+      details.location && `Location: ${details.location}`,
+      details.whereBought && `Where bought: ${details.whereBought}`,
+    ].filter(Boolean);
+    if (lines.length) setBody((b) => `${b.trimEnd()}\n\nMy details:\n${lines.join('\n')}`);
+  }
+
+  const text = `${subject}\n\n${body}`;
+  const mailto = draft ? `mailto:${draft.to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}` : undefined;
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+
+  async function copyOrShare() {
+    if (canShare) {
+      await navigator.share({ title: subject, text }).catch(() => {});
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      document.getElementById(bodyId)?.focus();
+      (document.getElementById(bodyId) as HTMLTextAreaElement | null)?.select();
+    }
+  }
+
+  const filled = Object.values(details).filter(Boolean).length;
 
   return (
-    <Shell onBack={onBack} title="Report to NAFDAC" subtitle="We draft it. You review every word and send it yourself.">
-      <Card className="flex items-center gap-3">
-        <VerdictIcon legend={result.legend} size={28} />
-        <div className="grid">
-          <span className="text-[12px] font-bold uppercase tracking-[0.08em]" style={{ color: result.legend.text }}>
-            {result.legend.label}
-          </span>
-          <span className="font-semibold">{input.fields.productName.value || 'Unnamed product'}</span>
-        </div>
-      </Card>
-
-      <section className="grid gap-3">
-        <SectionLabel>Your details (optional)</SectionLabel>
-        <p className="text-[14px] text-muted">These go into the email so NAFDAC can follow up. We don't store them.</p>
-        <Field label="Your name" value={name} onChange={detail(setName)} autoComplete="name" />
-        <Field label="Phone" value={phone} onChange={detail(setPhone)} type="tel" autoComplete="tel" />
-        <Field label="Your town or area" value={location} onChange={detail(setLocation)} />
-        <Field label="Where you bought it" value={whereBought} onChange={detail(setWhereBought)} placeholder="e.g. a pharmacy on Ojuelegba Rd" />
-        {(!draft || stale) && (
-          <Button onClick={makeDraft} disabled={loading} variant={draft ? 'secondary' : 'primary'}>
-            {loading ? 'Drafting…' : draft ? 'Redo the draft with these details' : 'Draft the report'}
-          </Button>
-        )}
-        {stale && <p className="text-[13px] text-muted">Redoing the draft replaces any edits you made below.</p>}
-        {error && <p role="alert" className="text-[14px] font-semibold">{error}</p>}
-      </section>
-
-      {draft && (
-        <section className="rise grid gap-3">
-          <SectionLabel>Review before sending</SectionLabel>
-          <p className="text-[14px]">
-            To: <span className="font-semibold">{draft.to}</span>
-          </p>
-          <Field label="Subject" value={subject} onChange={setSubject} />
-          <Field label="Message" multiline value={body} onChange={setBody} />
-          <div className="grid gap-2">
-            <a href={mailto} className="inline-flex min-h-12 items-center justify-center rounded-[10px] bg-primary px-4 text-[15px] font-semibold text-white hover:bg-moss">
+    <Shell
+      onBack={onBack}
+      title="Report to NAFDAC"
+      description="We drafted it for you. Read it, change anything, then send it yourself."
+      className="gap-3"
+      footer={
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            <a href={draft?.tel ?? 'tel:0800-162-3322'} className={buttonVariants({ variant: 'secondary' })}>
+              <Phone strokeWidth={1.75} />
+              Call NAFDAC
+            </a>
+            <a href={mailto} aria-disabled={!draft} className={cn(buttonVariants(), !draft && 'pointer-events-none opacity-40')}>
+              <Mail strokeWidth={1.75} />
               Send email
             </a>
-            <a href={draft.tel} className="inline-flex min-h-12 items-center justify-center rounded-[10px] border border-line bg-white px-4 text-[15px] font-semibold text-ink hover:border-moss">
-              Call NAFDAC · {draft.phone}
-            </a>
           </div>
-          <p className="text-[12.5px] text-muted">Nothing is sent until you press send in your email app.</p>
-        </section>
+          <Button variant="ghost" block onClick={copyOrShare} disabled={!draft}>
+            {canShare ? <Share strokeWidth={1.75} /> : <Copy strokeWidth={1.75} />}
+            {copied ? 'Copied' : canShare ? 'Share, e.g. on WhatsApp' : 'Copy the message'}
+          </Button>
+          <p className="text-center text-cap text-ink-3">Nothing is sent until you press send yourself.</p>
+        </>
+      }
+    >
+      <div className="flex items-center gap-3 rounded-md bg-fill px-3.5 py-3">
+        <VerdictIcon legend={result.legend} size={22} />
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate text-body font-medium">{input.fields.productName?.value || 'Unnamed product'}</span>
+          <span className="truncate text-cap text-ink-2 tabular">
+            {result.legend.label} · To {draft?.to ?? 'NAFDAC'} · {draft?.phone ?? '0800-162-3322'}
+          </span>
+        </span>
+      </div>
+
+      {error ? (
+        <div role="alert" className="flex flex-col items-start gap-2 rounded-md p-3.5 shadow-[inset_0_0_0_1px_var(--color-line)]">
+          <p className="text-body">{error}</p>
+          <Button size="sm" variant="secondary" onClick={() => makeDraft(details)}>
+            Try again
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor={subjectId} className="text-foot font-medium text-ink-2">
+              Subject
+            </label>
+            <Input id={subjectId} value={subject} onChange={(e) => setSubject(e.target.value)} disabled={!draft} placeholder="Drafting…" />
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col gap-1.5">
+            <label htmlFor={bodyId} className="text-foot font-medium text-ink-2">
+              Message
+            </label>
+            <Textarea id={bodyId} value={body} onChange={(e) => setBody(e.target.value)} disabled={!draft} placeholder="Drafting…" className="min-h-[180px] flex-1 text-foot leading-[20px]" />
+          </div>
+        </>
       )}
+
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetTrigger className="flex h-11 items-center gap-2 rounded-md px-1 text-left text-body font-medium">
+          <UserRound className="size-[18px]" strokeWidth={1.75} />
+          <span className="flex-1">Add your details</span>
+          <span className="text-foot text-ink-3">{filled ? `${filled} added` : 'Optional'}</span>
+        </SheetTrigger>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Your details</SheetTitle>
+            <SheetDescription>Optional. They go into the message so NAFDAC can follow up. We don't store them.</SheetDescription>
+          </SheetHeader>
+          <SheetBody>
+            <LabeledInput label="Your name" value={details.name} onChange={(v) => setDetails({ ...details, name: v })} autoComplete="name" />
+            <LabeledInput label="Phone" value={details.phone} onChange={(v) => setDetails({ ...details, phone: v })} type="tel" autoComplete="tel" />
+            <LabeledInput label="Your town or area" value={details.location} onChange={(v) => setDetails({ ...details, location: v })} />
+            <LabeledInput label="Where you bought it" value={details.whereBought} onChange={(v) => setDetails({ ...details, whereBought: v })} placeholder="e.g. a pharmacy on Ojuelegba Rd" />
+            <Button block onClick={applyDetails}>
+              Add to the message
+            </Button>
+          </SheetBody>
+        </SheetContent>
+      </Sheet>
     </Shell>
   );
 }

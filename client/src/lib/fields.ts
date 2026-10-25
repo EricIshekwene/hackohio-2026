@@ -9,10 +9,9 @@ export interface FieldDef {
   hint?: string;
 }
 
-// Order matches the pack, most identifying first. Labels match the backend's comparison rows.
+// Most important first: the reg. no. drives the result, the name and maker are what R3 compares.
 export const FIELD_DEFS: FieldDef[] = [
   { key: 'productName', label: 'Product name', placeholder: 'e.g. Artheget EZ' },
-  { key: 'strength', label: 'Strength', placeholder: 'e.g. 80 mg / 480 mg' },
   {
     key: 'nafdacRegNo',
     label: 'NAFDAC reg. no.',
@@ -23,9 +22,10 @@ export const FIELD_DEFS: FieldDef[] = [
   { key: 'manufacturer', label: 'Manufacturer', placeholder: 'e.g. Getz Pharma' },
   { key: 'batchNo', label: 'Batch no.', placeholder: 'e.g. AG1042', mono: true },
   { key: 'expiryDate', label: 'Expiry date', placeholder: 'e.g. 03/2028', mono: true },
+  { key: 'strength', label: 'Strength', placeholder: 'e.g. 80 mg / 480 mg' },
   { key: 'activeIngredient', label: 'Active ingredient', placeholder: 'e.g. Artemether; Lumefantrine', optional: true },
-  { key: 'dosageForm', label: 'Dosage form', placeholder: 'e.g. Tablet', optional: true },
-  { key: 'marketedBy', label: 'Marketed / imported by', placeholder: 'Nigerian licence holder, if shown', optional: true },
+  { key: 'dosageForm', label: 'Form (tablet, syrup…)', placeholder: 'e.g. Tablet', optional: true },
+  { key: 'marketedBy', label: 'Imported by', placeholder: 'The Nigerian company on the pack, if shown', optional: true },
 ];
 
 export const REQUIRED_KEYS = FIELD_DEFS.filter((f) => !f.optional).map((f) => f.key);

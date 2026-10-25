@@ -1,12 +1,38 @@
 import { useRef, useState } from 'react';
+import { ImageUp, Keyboard, RotateCcw, X } from 'lucide-react';
 import { resizeImage } from '@/lib/image';
-import { Button, Card } from '@/components/ui';
-import { Shell } from '@/components/Shell';
+import { Button } from '@/components/ui/button';
+import { Shell, type StepInfo } from '@/components/app-shell';
+import { cn } from '@/lib/utils';
 
-export function Snap({ onBack, onPhoto, onManual }: { onBack: () => void; onPhoto: (photo: Blob, url: string) => void; onManual: () => void }) {
+// The frame the pack goes in: white corner marks on the dark stage.
+export function CaptureFrame({ children, className }: { children?: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn('relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-white/[0.04]', className)}>
+      {children}
+      {['top-3 left-3 border-t-[3px] border-l-[3px] rounded-tl-[10px]', 'top-3 right-3 border-t-[3px] border-r-[3px] rounded-tr-[10px]', 'bottom-3 left-3 border-b-[3px] border-l-[3px] rounded-bl-[10px]', 'bottom-3 right-3 border-b-[3px] border-r-[3px] rounded-br-[10px]'].map((c) => (
+        <span key={c} aria-hidden="true" className={cn('pointer-events-none absolute size-7 border-white', c)} />
+      ))}
+    </div>
+  );
+}
+
+export function Snap({
+  step,
+  initial,
+  onBack,
+  onPhoto,
+  onManual,
+}: {
+  step: StepInfo;
+  initial: { blob: Blob; url: string } | null; // the last photo, so Back shows it instead of a blank camera
+  onBack: () => void;
+  onPhoto: (photo: Blob, url: string) => void;
+  onManual: () => void;
+}) {
   const cameraRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<{ blob: Blob; url: string } | null>(null);
+  const [preview, setPreview] = useState<{ blob: Blob; url: string } | null>(initial);
   const [error, setError] = useState<string | null>(null);
 
   async function handleFile(file: File | undefined) {
@@ -14,82 +40,86 @@ export function Snap({ onBack, onPhoto, onManual }: { onBack: () => void; onPhot
     setError(null);
     try {
       const blob = await resizeImage(file);
-      if (preview) URL.revokeObjectURL(preview.url);
+      if (preview && preview.url !== initial?.url) URL.revokeObjectURL(preview.url);
       setPreview({ blob, url: URL.createObjectURL(blob) });
     } catch {
       setError("That file isn't a photo we can read. Try another, or type the details.");
     }
   }
 
-  const inputs = (
-    <>
-      <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
-      <input ref={uploadRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
-    </>
-  );
-
-  if (preview) {
-    return (
-      <Shell
-        step={0}
-        onBack={() => setPreview(null)}
-        title="Is your photo clear?"
-        subtitle="Check you can read the NAFDAC number, batch and expiry."
-        footer={
+  return (
+    <Shell
+      stage
+      step={step}
+      onBack={onBack}
+      title={preview ? 'Can you read the small print?' : 'Photograph the pack'}
+      description={
+        preview
+          ? 'Check the NAFDAC number, batch and expiry are sharp and free of glare.'
+          : 'Lay it flat in good light, with the side that shows the NAFDAC number facing up.'
+      }
+      footer={
+        preview ? (
           <>
-            <Button onClick={() => onPhoto(preview.blob, preview.url)}>Use this photo</Button>
-            <Button variant="secondary" onClick={() => cameraRef.current?.click()}>
+            <Button block className="bg-white text-ink hover:bg-white/90" onClick={() => onPhoto(preview.blob, preview.url)}>
+              Use this photo
+            </Button>
+            <Button block variant="onStage" onClick={() => cameraRef.current?.click()}>
+              <RotateCcw strokeWidth={1.75} />
               Retake
             </Button>
           </>
-        }
-      >
-        {inputs}
-        <img src={preview.url} alt="Your photo of the pack" className="w-full rounded-card border border-line object-contain" />
-      </Shell>
-    );
-  }
-
-  return (
-    <Shell
-      step={0}
-      onBack={onBack}
-      title="Show us the pack"
-      subtitle="Lay it flat in good light, with the side that has the NAFDAC number facing up."
-      footer={
-        <>
-          <Button onClick={() => cameraRef.current?.click()}>
-            <span aria-hidden="true">📷</span> Take photo
-          </Button>
-          <Button variant="secondary" onClick={() => uploadRef.current?.click()}>
-            Upload from gallery
-          </Button>
-        </>
+        ) : (
+          <div className="grid grid-cols-3 items-center pb-2">
+            <button type="button" onClick={() => uploadRef.current?.click()} className="flex flex-col items-center gap-1.5 text-cap text-white/75 hover:text-white">
+              <span className="grid size-11 place-items-center rounded-full bg-white/12">
+                <ImageUp className="size-5" strokeWidth={1.75} />
+              </span>
+              Upload
+            </button>
+            <button
+              type="button"
+              aria-label="Take photo"
+              onClick={() => cameraRef.current?.click()}
+              className="mx-auto grid size-[76px] place-items-center rounded-full border-[3px] border-white/90 transition-transform active:scale-95"
+            >
+              <span className="size-[60px] rounded-full bg-white" />
+            </button>
+            <button type="button" onClick={onManual} className="flex flex-col items-center gap-1.5 text-cap text-white/75 hover:text-white">
+              <span className="grid size-11 place-items-center rounded-full bg-white/12">
+                <Keyboard className="size-5" strokeWidth={1.75} />
+              </span>
+              Type it instead
+            </button>
+          </div>
+        )
       }
     >
-      {inputs}
-      <div className="grid aspect-[4/3.2] place-items-center rounded-[14px] border-2 border-dashed border-reseda bg-[repeating-linear-gradient(45deg,#E8EFE2_0_10px,#F3F6F0_10px_20px)] p-6 text-center">
-        <div className="grid justify-items-center gap-3">
-          <div className="grid h-24 w-40 content-center justify-items-start gap-1 rounded-md border border-[#cdd5e2] bg-white px-3 text-left text-[10px] text-[#26324a] shadow-sm">
-            <b className="text-[12px] text-primary">Medicine name 500 mg</b>
-            <span className="font-mono">NAFDAC Reg. No. A4-0000</span>
-            <span className="font-mono">Batch AB123 · EXP 03/2028</span>
-          </div>
-          <p className="text-[14px] font-semibold text-muted">Fit the whole pack in the frame</p>
-        </div>
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
+      <input ref={uploadRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
+      <div className="flex flex-1 flex-col justify-center gap-4">
+        <CaptureFrame>
+          {preview ? (
+            <img src={preview.url} alt="Your photo of the pack" className="size-full object-contain" />
+          ) : (
+            <div className="grid size-full place-items-center">
+              <p className="text-foot text-white/45">Fit the whole pack inside the corners</p>
+            </div>
+          )}
+        </CaptureFrame>
+        {!preview && (
+          <ul className="flex flex-col gap-1.5 text-foot text-white/65">
+            <li>Tilt the pack away from the light to avoid glare.</li>
+            <li>The AI only reads the label. You check every detail next.</li>
+          </ul>
+        )}
+        {error && (
+          <p role="alert" className="flex items-start gap-2 rounded-md bg-white/10 p-3 text-foot text-white">
+            <X className="mt-px size-4 shrink-0" />
+            {error}
+          </p>
+        )}
       </div>
-      <Card className="grid gap-1.5 text-[14px]">
-        <p className="font-bold">Tips for a good read</p>
-        <ul className="grid gap-1 text-muted">
-          <li>• No glare: tilt the pack away from the light.</li>
-          <li>• Hold steady, close enough to read the small print.</li>
-          <li>• AI only reads the pack. You check every detail next.</li>
-        </ul>
-      </Card>
-      {error && <p className="rounded-lg bg-white p-3 text-[14px] font-semibold text-ink ring-1 ring-line">{error}</p>}
-      <button type="button" onClick={onManual} className="min-h-11 text-[15px] font-semibold text-moss underline underline-offset-4">
-        Type it instead
-      </button>
     </Shell>
   );
 }

@@ -1,36 +1,42 @@
 import { useEffect, useState } from 'react';
 import { Camera, Keyboard } from 'lucide-react';
-import { CAVEAT } from '@shared/legend';
+import { CAVEAT, LEGEND } from '@shared/legend';
 import { DEMO_PACKS, getMeta, USE_MOCKS, type DemoPackId, type Meta } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataFooter, Shell } from '@/components/app-shell';
+import { VerdictIcon } from '@/components/verdict';
 
-// A pack in the scan frame: the one picture that says what the app does.
-function PackIllustration() {
+// What the app does, shown with a real result instead of clip art: the hero demo pack's two mismatches.
+function ResultPreview() {
+  const red = LEGEND.red;
+  const rows = [
+    ['Reg. no.', 'A4-6238', 'A4-6238', true],
+    ['Product', 'Lonart Forte', 'Artheget EZ', false],
+    ['Maker', 'Greenlife Pharma', 'Getz Pharma', false],
+  ] as const;
   return (
-    <svg viewBox="0 0 320 210" className="h-full w-full" role="img" aria-label="A medicine pack inside a scan frame">
-      <g fill="none" stroke="#0A0C0A" strokeWidth="2.5" strokeLinecap="round">
-        <path d="M44 34V20h14M276 34V20h-14M44 176v14h14M276 176v14h-14" />
-      </g>
-      <g transform="rotate(-4 160 105)">
-        <rect x="74" y="44" width="172" height="122" rx="10" fill="#fff" stroke="#E7E8E5" />
-        <rect x="74" y="44" width="172" height="30" rx="10" fill="#F5F5F3" />
-        <rect x="74" y="64" width="172" height="10" fill="#F5F5F3" />
-        <rect x="90" y="54" width="70" height="9" rx="4.5" fill="#0A0C0A" />
-        <rect x="90" y="88" width="96" height="7" rx="3.5" fill="#52574F" />
-        <rect x="90" y="102" width="62" height="7" rx="3.5" fill="#C9CBC6" />
-        <rect x="88" y="122" width="104" height="22" rx="6" fill="none" stroke="#0D330E" strokeWidth="1.5" strokeDasharray="3 3" />
-        <text x="96" y="137" fontFamily="Geist Variable, sans-serif" fontSize="10.5" fontWeight="600" fill="#0A0C0A">
-          NAFDAC A4-6238
-        </text>
-        <g fill="#0A0C0A">
-          {[0, 3, 5, 9, 11, 14, 18, 20, 23, 27].map((x, i) => (
-            <rect key={x} x={204 + x} y="124" width={i % 3 === 0 ? 2 : 1.2} height="22" />
-          ))}
-        </g>
-      </g>
-    </svg>
+    <div aria-hidden="true" className="overflow-hidden rounded-lg border border-line text-foot">
+      <div className="flex items-center gap-2.5 bg-fill px-3 py-3">
+        <VerdictIcon legend={red} size={20} />
+        <span className="font-semibold text-ink">Do not use this medicine</span>
+        <span className="ml-auto text-cap text-ink-3">Example result</span>
+      </div>
+      <div>
+        <div className="grid grid-cols-[72px_1fr_1fr] gap-2 border-t border-line px-3 py-2 text-cap text-ink-3">
+          <span>Field</span>
+          <span>On the pack</span>
+          <span>NAFDAC record</span>
+        </div>
+        {rows.map(([f, pack, rec, ok]) => (
+          <div key={f} className="grid grid-cols-[72px_1fr_1fr] gap-2 border-t border-line px-3 py-2.5" style={ok ? undefined : { background: red.background, color: red.text }}>
+            <span className={ok ? 'text-ink-2' : 'font-medium'}>{f}</span>
+            <span className={ok ? '' : 'font-medium'}>{pack}</span>
+            <span className={ok ? '' : 'font-medium'}>{rec}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -71,9 +77,7 @@ export function Landing({ onStart, onManual, onDemo }: { onStart: () => void; on
         </>
       }
     >
-      <div className="aspect-[320/210] w-full overflow-hidden rounded-lg bg-fill">
-        <PackIllustration />
-      </div>
+      <ResultPreview />
       <div className="flex flex-col gap-2 pt-2">
         <h1 className="text-display font-semibold">Check a medicine pack against NAFDAC records</h1>
         <p className="text-body text-ink-2">

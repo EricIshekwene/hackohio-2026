@@ -20,7 +20,7 @@ function VerdictHeader({ result, productName, compact }: { result: VerificationR
       <section aria-labelledby="verdict-headline" className="flex items-center gap-2.5 rounded-lg bg-(--v-bg) px-4 py-3 text-(--v-tx)" style={legendVars(l)}>
         <VerdictIcon legend={l} size={22} />
         <span className="flex min-w-0 flex-1 flex-col">
-          <h1 id="verdict-headline" className="truncate text-body font-semibold text-ink">
+          <h1 id="verdict-headline" className="truncate text-[17px] leading-6 font-semibold text-ink">
             {result.headline}
           </h1>
           <span className="truncate text-cap">{l.label} · {result.caveat}</span>
@@ -51,7 +51,7 @@ function VerdictHeader({ result, productName, compact }: { result: VerificationR
       </div>
       <p className="text-body">{result.summary}</p>
       <p className="text-body font-medium text-ink">{nextStep}</p>
-      <p className="text-cap opacity-80">
+      <p className="text-cap">
         {productName ? `${productName} · ` : ''}
         {formatDate(result.checkedAt.slice(0, 10))} · {result.caveat}
       </p>
@@ -87,13 +87,13 @@ function ReasonRow({ finding, summary }: { finding: Finding; summary: string }) 
             <dl className="flex flex-col overflow-hidden rounded-md shadow-[inset_0_0_0_1px_var(--color-line)]">
               {finding.evidence.map((e) => (
                 <div key={e.field} className="grid grid-cols-[1fr_1fr] gap-x-3 gap-y-0.5 border-b border-line px-3.5 py-2.5 last:border-b-0" style={e.match === false ? { background: LEGEND.red.background, color: LEGEND.red.text } : undefined}>
-                  <dt className="col-span-2 text-cap opacity-70">{e.label}</dt>
+                  <dt className="col-span-2 text-cap font-medium">{e.label}</dt>
                   <dd className="text-foot">
-                    <span className="block text-cap opacity-60">On the pack</span>
+                    <span className="block text-cap">On the pack</span>
                     {e.onPack ?? '—'}
                   </dd>
                   <dd className="text-foot">
-                    <span className="block text-cap opacity-60">NAFDAC record</span>
+                    <span className="block text-cap">NAFDAC record</span>
                     {e.inRegistry ?? '—'}
                   </dd>
                 </div>
@@ -225,7 +225,7 @@ export function VerdictScreen({
         </TabsContent>
 
         <TabsContent value="why">
-          <div className="overflow-hidden rounded-lg shadow-[inset_0_0_0_1px_var(--color-line)]">
+          <div className="overflow-hidden rounded-lg border border-line">
             {result.reasons.map((f) => (
               <ReasonRow key={f.rule + f.title} finding={f} summary={result.summary} />
             ))}
@@ -234,11 +234,11 @@ export function VerdictScreen({
 
         <TabsContent value="checked" className="flex flex-col gap-4">
           <section className="flex flex-col gap-2">
-            <h2 className="text-foot font-medium">What we checked</h2>
+            <h2 className="text-body font-semibold">What we checked</h2>
             <Lines items={result.checked} mark="✓" />
           </section>
           <section className="flex flex-col gap-2">
-            <h2 className="text-foot font-medium">What we couldn't check</h2>
+            <h2 className="text-body font-semibold">What we couldn't check</h2>
             {result.notChecked.length ? <Lines items={result.notChecked} mark="–" /> : <p className="text-foot text-ink-3">Nothing was left out.</p>}
           </section>
         </TabsContent>

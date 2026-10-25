@@ -57,7 +57,7 @@ export function LegendPopover({ caveat, className }: { caveat: string; className
 export function ComparisonTable({ rows, legendRed }: { rows: ComparisonRow[]; legendRed: LegendEntry }) {
   const differ = rows.filter((r) => r.match === false).length;
   return (
-    <div className="overflow-hidden rounded-lg shadow-[inset_0_0_0_1px_var(--color-line)]" style={legendVars(legendRed)}>
+    <div className="overflow-hidden rounded-lg border border-line" style={legendVars(legendRed)}>
       <table className="w-full border-collapse text-left">
         <caption className="sr-only">
           Your pack compared with the NAFDAC record. {differ} {differ === 1 ? 'detail differs' : 'details differ'}.

@@ -8,7 +8,7 @@
 
   --color-ink: #0a0c0a; /* text and primary buttons */
   --color-ink-2: #52574f; /* secondary text */
-  --color-ink-3: #858a82; /* tertiary, placeholders */
+  --color-ink-3: #686d65; /* tertiary, placeholders; 4.6:1 or better on every surface we use */
   --color-line: #e7e8e5; /* hairlines */
   --color-fill: #f5f5f3; /* grouped background */
   --color-surface: #ffffff;
@@ -54,6 +54,7 @@
     font-feature-settings: "ss01", "tnum" 0;
   }
   h1, h2, h3 { text-wrap: balance; }
+  p, li, dd { text-wrap: pretty; }
   :focus-visible {
     outline: 2px solid var(--color-brand);
     outline-offset: 2px;

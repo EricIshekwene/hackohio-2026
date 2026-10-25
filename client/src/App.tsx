@@ -1,15 +1,26 @@
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useReducer, useRef } from 'react';
 import { checkMedication, DEMO_PACKS, RequestError, USE_MOCKS, type DemoPackId } from '@/lib/api';
 import { toInput } from '@/lib/fields';
 import { initialState, reducer, type State } from '@/state';
 import { PHOTO_STEPS, TYPED_STEPS, type StepInfo } from '@/components/app-shell';
 import { Landing } from '@/screens/Landing';
-import { Snap } from '@/screens/Snap';
-import { Read } from '@/screens/Read';
-import { Confirm } from '@/screens/Confirm';
-import { Checking } from '@/screens/Checking';
-import { VerdictScreen } from '@/screens/Verdict';
-import { Report } from '@/screens/Report';
+
+// The start screen loads first; the rest of the flow (and Base UI's dialog, popover and tabs) follows on idle.
+const loadFlow = () =>
+  Promise.all([
+    import('@/screens/Snap'),
+    import('@/screens/Read'),
+    import('@/screens/Confirm'),
+    import('@/screens/Checking'),
+    import('@/screens/Verdict'),
+    import('@/screens/Report'),
+  ]);
+const Snap = lazy(() => import('@/screens/Snap').then((m) => ({ default: m.Snap })));
+const Read = lazy(() => import('@/screens/Read').then((m) => ({ default: m.Read })));
+const Confirm = lazy(() => import('@/screens/Confirm').then((m) => ({ default: m.Confirm })));
+const Checking = lazy(() => import('@/screens/Checking').then((m) => ({ default: m.Checking })));
+const VerdictScreen = lazy(() => import('@/screens/Verdict').then((m) => ({ default: m.VerdictScreen })));
+const Report = lazy(() => import('@/screens/Report').then((m) => ({ default: m.Report })));
 import type { StandardizedMedicationInput } from '@shared/types';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -56,7 +67,10 @@ export default function App() {
     // Only reachable after the attestation tick, so confirmedByUser is always the user's own answer.
     if (!state.attested) return;
     if (!USE_MOCKS && !navigator.onLine) {
-      dispatch({ type: 'checkFailed', error: "You're offline. Your details are kept, so try again when you're connected." });
+      dispatch({
+        type: 'checkFailed',
+        error: "You're offline. Your details are kept, so try again when you're connected.",
+      });
       return;
     }
     const input = toInput(state.source, state.fields, true);
@@ -66,7 +80,10 @@ export default function App() {
       const [result] = await Promise.all([checkMedication(input), delay(1400)]);
       dispatch({ type: 'checkDone', result });
     } catch (e) {
-      dispatch({ type: 'checkFailed', error: e instanceof RequestError ? e.message : "Something went wrong. Your details are kept, so try again." });
+      dispatch({
+        type: 'checkFailed',
+        error: e instanceof RequestError ? e.message : 'Something went wrong. Your details are kept, so try again.',
+      });
     }
   }
 
@@ -75,60 +92,78 @@ export default function App() {
     dispatch({ type: 'startManual', prefill: pack.input });
   }
 
-  const step = stepFor(state);
-  const back = () => history.back();
+  useEffect(() => {
+    const prefetch = () => void loadFlow();
+    if ('requestIdleCallback' in window) requestIdleCallback(prefetch);
+    else setTimeout(prefetch, 300);
+  }, []);
 
-  switch (state.screen) {
-    case 'landing':
-      return <Landing onStart={() => dispatch({ type: 'go', screen: 'snap' })} onManual={() => dispatch({ type: 'startManual' })} onDemo={loadDemo} />;
-    case 'snap':
-      return <Snap step={step!} initial={state.photo && state.photoUrl ? { blob: state.photo, url: state.photoUrl } : null} onBack={back} onPhoto={(photo, url) => dispatch({ type: 'photoTaken', photo, url })} onManual={() => dispatch({ type: 'startManual' })} />;
-    case 'read':
-      return (
-        <Read
-          step={step!}
-          photo={state.photo!}
-          photoUrl={state.photoUrl!}
-          error={state.error}
-          onRead={onRead}
-          onFail={onReadFail}
-          onBack={back}
-          onRetake={back}
-          onManual={() => dispatch({ type: 'startManual', keepPhoto: true })}
-        />
-      );
-    case 'confirm':
-      return (
-        <Confirm
-          step={step!}
-          source={state.source}
-          fields={state.fields}
-          reviewed={state.reviewed}
-          attested={state.attested}
-          attestCleared={state.attestCleared}
-          photoUrl={state.photoUrl}
-          error={state.error}
-          onBack={back}
-          onEdit={(key, value) => dispatch({ type: 'editField', key, value })}
-          onReview={(key) => dispatch({ type: 'reviewField', key })}
-          onAttest={(value) => dispatch({ type: 'attest', value })}
-          onCheck={runCheck}
-        />
-      );
-    case 'checking':
-      return <Checking step={step!} input={state.sentInput!} />;
-    case 'verdict':
-      return (
-        <VerdictScreen
-          step={step!}
-          result={state.result!}
-          productName={state.sentInput?.fields.productName?.value ?? null}
-          onReport={() => dispatch({ type: 'go', screen: 'report' })}
-          onAnother={() => dispatch({ type: 'reset' })}
-          onEdit={back}
-        />
-      );
-    case 'report':
-      return <Report input={state.sentInput!} result={state.result!} onBack={back} />;
+  return <Suspense fallback={null}>{renderScreen()}</Suspense>;
+
+  function renderScreen() {
+    const step = stepFor(state);
+    const back = () => history.back();
+
+    switch (state.screen) {
+      case 'landing':
+        return <Landing onStart={() => dispatch({ type: 'go', screen: 'snap' })} onManual={() => dispatch({ type: 'startManual' })} onDemo={loadDemo} />;
+      case 'snap':
+        return (
+          <Snap
+            step={step!}
+            initial={state.photo && state.photoUrl ? { blob: state.photo, url: state.photoUrl } : null}
+            onBack={back}
+            onPhoto={(photo, url) => dispatch({ type: 'photoTaken', photo, url })}
+            onManual={() => dispatch({ type: 'startManual' })}
+          />
+        );
+      case 'read':
+        return (
+          <Read
+            step={step!}
+            photo={state.photo!}
+            photoUrl={state.photoUrl!}
+            error={state.error}
+            onRead={onRead}
+            onFail={onReadFail}
+            onBack={back}
+            onRetake={back}
+            onManual={() => dispatch({ type: 'startManual', keepPhoto: true })}
+          />
+        );
+      case 'confirm':
+        return (
+          <Confirm
+            step={step!}
+            source={state.source}
+            fields={state.fields}
+            reviewed={state.reviewed}
+            attested={state.attested}
+            attestCleared={state.attestCleared}
+            photoUrl={state.photoUrl}
+            error={state.error}
+            onBack={back}
+            onEdit={(key, value) => dispatch({ type: 'editField', key, value })}
+            onReview={(key) => dispatch({ type: 'reviewField', key })}
+            onAttest={(value) => dispatch({ type: 'attest', value })}
+            onCheck={runCheck}
+          />
+        );
+      case 'checking':
+        return <Checking step={step!} input={state.sentInput!} />;
+      case 'verdict':
+        return (
+          <VerdictScreen
+            step={step!}
+            result={state.result!}
+            productName={state.sentInput?.fields.productName?.value ?? null}
+            onReport={() => dispatch({ type: 'go', screen: 'report' })}
+            onAnother={() => dispatch({ type: 'reset' })}
+            onEdit={back}
+          />
+        );
+      case 'report':
+        return <Report input={state.sentInput!} result={state.result!} onBack={back} />;
+    }
   }
 }

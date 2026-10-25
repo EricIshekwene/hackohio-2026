@@ -163,7 +163,7 @@ export function Confirm({
         </Sheet>
       )}
 
-      <div className="overflow-hidden rounded-lg shadow-[inset_0_0_0_1px_var(--color-line)]">
+      <div className="overflow-hidden rounded-lg border border-line">
         {required.map((d) => (
           <FieldRow key={d.key} def={d} field={fields[d.key]} needsLook={needsLook(d)} onChange={(v) => onEdit(d.key, v)} onReview={() => onReview(d.key)} />
         ))}

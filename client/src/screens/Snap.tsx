@@ -103,7 +103,7 @@ export function Snap({
             <img src={preview.url} alt="Your photo of the pack" className="size-full object-contain" />
           ) : (
             <div className="grid size-full place-items-center">
-              <p className="text-foot text-white/45">Fit the whole pack inside the corners</p>
+              <p className="text-foot text-white/60">Fit the whole pack inside the corners</p>
             </div>
           )}
         </CaptureFrame>

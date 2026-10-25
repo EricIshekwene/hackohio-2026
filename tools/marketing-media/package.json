@@ -1,0 +1,22 @@
+{
+  "name": "medcheck-marketing-media",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Records the real MedCheck app into slideshow/video media. See README.md.",
+  "scripts": {
+    "media:shots": "tsx cli/shots.ts",
+    "media:videos": "tsx cli/videos.ts",
+    "media:images": "tsx cli/images.ts",
+    "media:gallery": "tsx cli/gallery.ts",
+    "media:all": "tsx cli/shots.ts && tsx cli/videos.ts && tsx cli/images.ts && tsx cli/gallery.ts",
+    "test": "tsx --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "playwright": "1.63.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

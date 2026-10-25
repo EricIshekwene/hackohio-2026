@@ -33,6 +33,7 @@ const f = (value: string | null, readText: string | null = value, confidence = 0
   value, readText, confidence, sourcePhoto: 1, photosDisagree: false,
 });
 // The hero demo pack as the AI might read it: messy, with labels and an O-for-0 slip.
+const f_ = (v: string | null, r: string | null, c: number) => ({ value: v, readText: r, confidence: c, sourcePhoto: 1, photosDisagree: false });
 const heroReading = (): RawExtraction => ({
   photoStatus: 'ok',
   sidesSeen: [{ photo: 1, side: 'front' }],
@@ -67,6 +68,14 @@ describe('field cleanup', () => {
     expect(clean('nafdacRegNo', 'O4-1234')).toMatchObject({ value: '04-1234', changedChars: true });
     expect(clean('nafdacRegNo', 'A46238').value).toBe('A4-6238');
     expect(clean('nafdacRegNo', 'HELLO').formatOk).toBe(false);
+  });
+  it('reg no: a partial number becomes null, never a guess (H05 torn box, H08 thumb)', () => {
+    expect(clean('nafdacRegNo', '04-77')).toMatchObject({ value: null, formatOk: false });
+    expect(clean('nafdacRegNo', '04')).toMatchObject({ value: null, formatOk: false });
+    const f = toExtractedField('nafdacRegNo', f_('04-77', 'NAFDAC Reg. No: 04-77', 0.5));
+    expect(f.value).toBeNull();
+    expect(f.sourceText).toBe('NAFDAC Reg. No: 04-77'); // client still shows "AI read: …"
+    expect(f.confidence).toBeLessThan(0.8);
   });
   it('strength', () => {
     expect(clean('strength', '80mg/480mg').value).toBe('80 mg / 480 mg');

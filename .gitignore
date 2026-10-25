@@ -157,3 +157,4 @@ server/testImg/*.jpeg
 server/testImg/*.png
 server/testImg/*.webp
 server/testImg/*.heic
+server/testImg/eval-results*.json

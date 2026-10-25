@@ -47,9 +47,14 @@ function regNo(raw: string): Cleaned {
   const notes = [];
   if (swapped) notes.push('replaced look-alike characters');
   if (skeleton !== value.replace(/-/g, '')) notes.push('changed letter O to digit 0');
-  const formatOk = REG_NO.test(value);
-  if (!formatOk) notes.push("doesn't look like a NAFDAC number");
-  return { value, formatOk, changedChars, notes };
+  // A fragment ("04-77" from a torn box, "04" beside a thumb) is not a registration number. Passing it on
+  // would make the rules call the pack "not registered" (RED) when the truth is "can't tell" (UNSURE).
+  // Send null; the client still shows what was read via sourceText so the user can type the full number.
+  if (!REG_NO.test(value)) {
+    notes.push(`only part of a NAFDAC number is readable ("${value}"); type the full number from the pack or leave it empty`);
+    return { value: null, formatOk: false, changedChars, notes };
+  }
+  return { value, formatOk: true, changedChars, notes };
 }
 
 const UNIT_MAP: Record<string, string> = { mg: 'mg', mcg: 'mcg', 'µg': 'mcg', 'μg': 'mcg', ug: 'mcg', g: 'g', ml: 'ml', iu: 'iu', '%': '%' };

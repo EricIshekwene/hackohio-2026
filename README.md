@@ -11,6 +11,8 @@ Falsified medicines are a daily risk in Nigeria, and a common trick is printing 
 
 Live demo (mock data, runs in the browser): https://claude.ai/artifact/G3B3z7PSve7DLFKuVQTXHx
 
+**Research, planning and process:** [docs/](docs/README.md) covers how we chose the problem, the user flows, the verdict rules, the design, the pivots, and how we used and validated AI.
+
 ## How it works
 
 ```
@@ -76,6 +78,7 @@ npm run dev
 - `shared/`: contracts, legend, fixtures
 - `data/`: registry snapshot and checked alerts
 - `tools/marketing-media/`: records the real running app into screenshots and videos
+- `docs/`: research, planning, design, process log, challenges, AI use and validation (start at `docs/README.md`)
 
 ## Limits
 

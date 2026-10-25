@@ -9,11 +9,15 @@ export function buildReport(req: ReportRequest): ReportDraft {
   const v = (k: keyof typeof f) => f[k]?.value || '(not on pack)';
   const tier = result.legend.label.toUpperCase();
   const product = f.productName?.value || 'unknown product';
+  // A coverage gap is not a suspicion of falsification; don't tell NAFDAC it is.
+  const unverified = ['not_found_in_snapshot', 'registry_match_historical', 'external_product_match', 'input_uncertain', 'lookup_unavailable'].includes(result.status);
 
   const lines = [
     'Dear NAFDAC Pharmacovigilance team,',
     '',
-    `I would like to report a medicine that may be substandard or falsified. A MedCheck check returned: ${tier}.`,
+    unverified
+      ? `I would like to ask about a medicine whose NAFDAC registration I could not verify. A MedCheck check returned: ${tier} (${result.headline}).`
+      : `I would like to report a medicine that may be substandard or falsified. A MedCheck check returned: ${tier}.`,
     '',
     'Details on the pack:',
     `- Product name: ${v('productName')}`,
@@ -41,7 +45,7 @@ export function buildReport(req: ReportRequest): ReportDraft {
     req.reporter?.phone || '(your phone number)',
   ];
 
-  const subject = `Suspected falsified medicine: ${product}${f.batchNo?.value ? `, batch ${f.batchNo.value}` : ''}`;
+  const subject = `${unverified ? 'Please verify registration' : 'Suspected falsified medicine'}: ${product}${f.batchNo?.value ? `, batch ${f.batchNo.value}` : ''}`;
   const body = lines.join('\n');
   return {
     to: NAFDAC_EMAIL,

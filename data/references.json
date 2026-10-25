@@ -1,0 +1,27 @@
+{
+  "note": "Non-Greenbook product evidence, with provenance. Each row is a record a person read at its source on retrievedAt. These rows never become registry rows: they can only lift 'not in our snapshot' to 'historical record found' (official NAFDAC documents) or 'product listing found' (GS1, manufacturer). registrationStatus is 'unknown' unless the source is authoritative for current status, which none of these are. Add a row only after reading the source; never from memory.",
+  "records": [
+    {
+      "sourceType": "gs1_listing",
+      "sourceName": "GS1 Nigeria product registry",
+      "recordType": "Barcode product listing",
+      "official": false,
+      "sourceUrl": "https://productregistry.gs1ng.org/products/product-detail/01/6156000531403",
+      "sourcePublishedAt": null,
+      "retrievedAt": "2026-10-25",
+      "registrationNumber": "B4-0910",
+      "productName": "Aquamal QS 80/480mg",
+      "activeIngredients": "Artemether; Lumefantrine",
+      "strength": "80 mg; 480 mg",
+      "dosageForm": "Tablet",
+      "manufacturer": "Pinnacle Health Pharmaceutical & Stores Ltd",
+      "gtin": "6156000531403",
+      "registrationStatus": "unknown",
+      "evidenceLimitations": [
+        "Listing is supplied by the brand owner to GS1 for barcodes; it is not a NAFDAC registration record.",
+        "Gives no registration date or current registration status.",
+        "Brand field reads \"AQUAMAL QS 80/480MG\"; description reads \"uncoated artemether/lumefantrine tablets\"."
+      ]
+    }
+  ]
+}

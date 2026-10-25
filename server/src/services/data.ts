@@ -1,7 +1,7 @@
 // Loads the registry snapshot and the alert list once at startup. Never calls Greenbook at runtime.
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import type { RegistryRecord } from '../../../shared/types';
+import type { EvidenceRecord, RegistryRecord, SourceType } from '../../../shared/types';
 import { normalizeBatch, regNoKey } from './normalize';
 
 export interface AlertProduct {
@@ -25,9 +25,27 @@ export interface Alert {
   humanChecked: boolean;
 }
 
+// A product record from outside the Greenbook (historical NAFDAC document, GS1, manufacturer catalogue).
+// Evidence only: never merged into the registry, never given a current status.
+export interface ReferenceRecord extends Omit<EvidenceRecord, 'found' | 'sourcePublishedAt'> {
+  sourceType: SourceType;
+  registrationNumber: string;
+  sourcePublishedAt?: string | null;
+}
+
 export interface Dataset {
-  registry: { snapshotDate: string; total: number; source: string; sourceUrl: string; isSeed: boolean };
+  registry: {
+    snapshotDate: string; // the day the snapshot was downloaded, not a NAFDAC publication date
+    total: number;
+    source: string;
+    sourceUrl: string;
+    isSeed: boolean;
+    available: boolean; // false = the registry file could not be loaded; never treat that as "not found"
+    earliestRegExpiry: string | null; // Greenbook drops registrations that lapsed before roughly this date
+  };
   byRegNo: Map<string, RegistryRecord[]>;
+  products: RegistryRecord[];
+  references: Map<string, ReferenceRecord[]>;
   alerts: Alert[];
   lastAlertDate: string;
   alertsByBatch: Map<string, Alert[]>;
@@ -47,20 +65,36 @@ function push<K, V>(map: Map<K, V[]>, key: K | null, value: V) {
   else map.set(key, [value]);
 }
 
-export function loadDataset(dir = DATA_DIR): Dataset {
+function loadRegistry(dir: string) {
   const snapshotFile = path.join(dir, 'registry.json');
   const isSeed = !existsSync(snapshotFile);
-  const reg = readJson(isSeed ? path.join(dir, 'seed-registry.json') : snapshotFile);
-  // Greenbook pads names with "##"/"_" and marks some with "**" or a leading "#"; strip them for display and matching.
+  try {
+    return { reg: readJson(isSeed ? path.join(dir, 'seed-registry.json') : snapshotFile), isSeed, available: true };
+  } catch (e) {
+    console.error('registry could not be loaded; checks will say "verification unavailable"', e);
+    return { reg: { snapshotDate: 'unknown', products: [] }, isSeed, available: false };
+  }
+}
+
+export function loadDataset(dir = DATA_DIR): Dataset {
+  const { reg, isSeed, available } = loadRegistry(dir);
+  // Greenbook pads names with "##"/"_" and marks some with "**", a leading "#" or a trailing "$"; strip them.
   const products: RegistryRecord[] = (reg.products as RegistryRecord[])
     .filter((p) => p && typeof p.regNo === 'string')
     .map((p) => ({
       ...p,
-      productName: String(p.productName ?? '').replace(/^[#*\s]+|[#*_\s]+$/g, ''),
-      applicant: String(p.applicant ?? ''),
+      productName: String(p.productName ?? '').replace(/^[#*\s]+|[#*_$\s]+$/g, ''),
+      applicant: String(p.applicant ?? '').replace(/&amp;/g, '&'),
       strength: String(p.strength ?? ''),
       status: String(p.status ?? 'unknown'),
     }));
+  const earliestRegExpiry = products.map((p) => p.expiryDate).filter((d): d is string => !!d).sort()[0] ?? null;
+
+  const references = new Map<string, ReferenceRecord[]>();
+  const refFile = path.join(dir, 'references.json');
+  if (existsSync(refFile)) {
+    for (const r of readJson(refFile).records as ReferenceRecord[]) push(references, regNoKey(r.registrationNumber), r);
+  }
 
   const byRegNo = new Map<string, RegistryRecord[]>();
   for (const p of products) push(byRegNo, regNoKey(p.regNo), p);
@@ -87,8 +121,12 @@ export function loadDataset(dir = DATA_DIR): Dataset {
       source: reg.source ?? 'NAFDAC Greenbook',
       sourceUrl: reg.sourceUrl ?? 'https://greenbook.nafdac.gov.ng/',
       isSeed,
+      available,
+      earliestRegExpiry,
     },
     byRegNo,
+    products,
+    references,
     alerts,
     lastAlertDate,
     alertsByBatch,

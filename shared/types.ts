@@ -48,10 +48,75 @@ export type ExtractResponse = StandardizedMedicationInput & { extraction: Extrac
 
 export type Verdict = 'red' | 'amber' | 'green' | 'unsure';
 
-// R1 not registered · R2 on an alert · R3 details differ from the registered record
+// R1 not in the local registry snapshot (unable to verify; never "not registered")
+// R2 on an alert · R3 details differ from the registered (or reference) record
 // R4 registration not active / expired · R5 all consistent · R6 pack past its expiry
-// U1 no registration number on the pack
-export type RuleId = 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6' | 'U1';
+// U1 no registration number on the pack · U2 number needed a character correction and has no match
+// U3 registry data unavailable
+export type RuleId = 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6' | 'U1' | 'U2' | 'U3';
+
+// What the evidence actually supports. The colour (Verdict) is derived from this, never the other way round.
+// "Not in our data" is a statement about coverage, not proof that a registration never existed.
+export type DecisionStatus =
+  | 'registry_match_current' // current NAFDAC Greenbook record, pack consistent
+  | 'registry_match_historical' // earlier official NAFDAC record only; current status unknown
+  | 'external_product_match' // GS1 / manufacturer listing only; official status unknown
+  | 'record_mismatch' // a trusted record has this number but different pack details
+  | 'confirmed_regulatory_alert' // an official alert names this batch or number
+  | 'confirmed_inactive_or_cancelled' // Greenbook lists the registration as not Active, or expired
+  | 'not_found_in_snapshot' // no match in the data we hold; that data is not exhaustive
+  | 'lookup_unavailable' // registry data could not be loaded
+  | 'input_uncertain'; // the number is missing or was not read reliably
+
+export type Severity = 'high' | 'warning' | 'caution' | 'none';
+
+export type ReasonCode =
+  | 'REGISTRY_MATCH_CURRENT'
+  | 'NOT_IN_LOCAL_SNAPSHOT'
+  | 'HISTORICAL_RECORD_FOUND'
+  | 'EXTERNAL_PRODUCT_RECORD_FOUND'
+  | 'CURRENT_STATUS_UNVERIFIED'
+  | 'REGULATORY_ALERT'
+  | 'SIMILAR_PRODUCT_ALERT'
+  | 'FIELD_MISMATCH'
+  | 'REFERENCE_FIELD_MISMATCH'
+  | 'NAME_NEAR_MISS'
+  | 'REGISTRATION_INACTIVE'
+  | 'REGISTRATION_EXPIRED'
+  | 'PACK_EXPIRED'
+  | 'NO_REG_NO'
+  | 'REG_NO_CHARACTER_CORRECTED'
+  | 'LOOKUP_UNAVAILABLE';
+
+// Where a record came from. Only Greenbook rows carry an authoritative current status.
+export type SourceType =
+  | 'nafdac_greenbook'
+  | 'nafdac_historical_document'
+  | 'nafdac_alert'
+  | 'who_alert'
+  | 'gs1_listing'
+  | 'manufacturer_catalog';
+
+// One source we looked in, and what (if anything) it says about this number. Kept separate from the decision.
+export interface EvidenceRecord {
+  sourceType: SourceType;
+  sourceName: string; // "NAFDAC Greenbook", "GS1 Nigeria product registry"
+  recordType: string; // "Current registry snapshot", "Barcode product listing"
+  official: boolean; // published by NAFDAC
+  found: boolean; // false = we looked and this source has no record for the number
+  sourceUrl?: string;
+  sourcePublishedAt?: string; // ISO date the source itself was published, when known
+  retrievedAt?: string; // ISO date we downloaded / read it
+  registrationNumber: string | null;
+  productName?: string;
+  activeIngredients?: string;
+  strength?: string;
+  dosageForm?: string;
+  manufacturer?: string;
+  registrationStatus: string; // "Active" | "Inactive" | "unknown" (only Greenbook is authoritative)
+  registrationStatusVerifiedAt?: string;
+  evidenceLimitations: string[];
+}
 
 export interface ComparisonRow {
   field: FieldKey;
@@ -71,6 +136,7 @@ export interface Source {
 // One rule that fired. Every non-green verdict has at least one of these, all produced by code.
 export interface Finding {
   rule: RuleId;
+  code: ReasonCode; // machine-readable reason
   verdict: Verdict; // this finding's own colour; the overall verdict is the worst one
   title: string; // "Registration number belongs to a different product"
   message: string; // plain-language explanation
@@ -112,7 +178,15 @@ export interface LegendEntry {
 }
 
 export interface VerificationResult {
+  status: DecisionStatus; // what the evidence supports; verdict is its colour
+  severity: Severity;
   verdict: Verdict;
+  registrationNumber: string | null; // normalised, as looked up
+  productName: string | null; // from the record we matched, else the pack
+  currentRegistrationStatus: 'active' | 'inactive' | 'expired' | 'unknown'; // from Greenbook only
+  authenticityVerified: false; // a records check can never establish this
+  evidence: EvidenceRecord[]; // every source consulted, including ones with no record
+  comparisonSource: string; // header for the right-hand column of the comparison ("NAFDAC record", "GS1 listing")
   legend: LegendEntry; // the entry for this verdict, so the screen needs no lookup
   headline: string; // plain language
   summary: string; // one sentence; for green this is the exact caveat wording

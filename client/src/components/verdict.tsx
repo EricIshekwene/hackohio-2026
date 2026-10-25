@@ -54,19 +54,19 @@ export function LegendPopover({ caveat, className }: { caveat: string; className
 }
 
 // The hero: what's on the pack next to what NAFDAC registered. Shown once, never repeated.
-export function ComparisonTable({ rows, legendRed }: { rows: ComparisonRow[]; legendRed: LegendEntry }) {
+export function ComparisonTable({ rows, legendRed, sourceLabel = 'NAFDAC record' }: { rows: ComparisonRow[]; legendRed: LegendEntry; sourceLabel?: string }) {
   const differ = rows.filter((r) => r.match === false).length;
   return (
-    <div className="overflow-hidden rounded-lg border border-line" style={legendVars(legendRed)}>
+    <div className="shrink-0 overflow-hidden rounded-lg border border-line" style={legendVars(legendRed)}>
       <table className="w-full border-collapse text-left">
         <caption className="sr-only">
-          Your pack compared with the NAFDAC record. {differ} {differ === 1 ? 'detail differs' : 'details differ'}.
+          Your pack compared with the {sourceLabel}. {differ} {differ === 1 ? 'detail differs' : 'details differ'}.
         </caption>
         <thead>
           <tr className="text-cap text-ink-3">
             <th scope="col" className="py-2 pr-2 pl-3 font-medium">Field</th>
             <th scope="col" className="px-2 py-2 font-medium">On the pack</th>
-            <th scope="col" className="px-2 py-2 pr-3 font-medium">NAFDAC record</th>
+            <th scope="col" className="px-2 py-2 pr-3 font-medium">{sourceLabel}</th>
           </tr>
         </thead>
         <tbody>
@@ -88,7 +88,7 @@ export function ComparisonTable({ rows, legendRed }: { rows: ComparisonRow[]; le
                 </th>
                 <td className={cn('px-2 py-2.5 break-words', off && 'font-medium', short(r.onPack) && 'whitespace-nowrap')}>{r.onPack ?? <Missing />}</td>
                 <td className={cn('py-2.5 pr-3 pl-2 break-words', off && 'font-medium', short(r.inRegistry) && 'whitespace-nowrap')}>
-                  {r.inRegistry ?? (r.match === null ? <Missing text="Couldn't compare" /> : <Missing text="No record" />)}
+                  {r.inRegistry ?? (r.match === null ? <Missing text="Couldn't compare" /> : <Missing text="No matching record in current local dataset" />)}
                 </td>
               </tr>
             );

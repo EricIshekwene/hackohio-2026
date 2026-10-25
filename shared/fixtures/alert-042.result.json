@@ -1,42 +1,58 @@
 {
+  "status": "confirmed_regulatory_alert",
+  "severity": "high",
+  "registrationNumber": "02-3457",
+  "productName": "Artemether/Lumefantrine 80mg/480mg",
+  "currentRegistrationStatus": "unknown",
+  "authenticityVerified": false,
+  "evidence": [
+    {
+      "sourceType": "nafdac_greenbook",
+      "sourceName": "NAFDAC Greenbook",
+      "recordType": "Registry snapshot",
+      "official": true,
+      "found": false,
+      "sourceUrl": "https://greenbook.nafdac.gov.ng/",
+      "retrievedAt": "2026-10-25",
+      "registrationNumber": null,
+      "registrationStatus": "unknown",
+      "evidenceLimitations": [
+        "A snapshot of what Greenbook listed on the download date, not a live lookup.",
+        "Greenbook only returned registrations expiring on or after 27 Oct 2025; older lapsed or renumbered registrations are missing, so absence here does not mean a number never existed."
+      ]
+    },
+    {
+      "sourceType": "nafdac_alert",
+      "sourceName": "NAFDAC and WHO alerts",
+      "recordType": "1 human-checked alert",
+      "official": true,
+      "found": true,
+      "sourcePublishedAt": "2026-08-19",
+      "registrationNumber": "02-3457",
+      "registrationStatus": "unknown",
+      "evidenceLimitations": [
+        "Only alerts a person has checked and entered; newer alerts may be missing."
+      ]
+    }
+  ],
+  "comparisonSource": "NAFDAC record",
   "verdict": "red",
   "legend": {
     "verdict": "red",
     "label": "Do not use",
     "headline": "Do not use this medicine",
-    "meaning": "Not registered, on a NAFDAC alert, or the number belongs to a different product.",
+    "meaning": "On a NAFDAC alert, or the registration number belongs to a different product.",
     "nextStep": "Don't take or sell it. Keep the pack, show it to a pharmacist, and report it to NAFDAC (0800-162-3322).",
     "color": "#D32F2F",
     "background": "#FDECEA",
     "text": "#8E1B1B"
   },
   "headline": "Do not use this medicine",
-  "summary": "Registration number not found",
+  "summary": "On NAFDAC Public Alert 042/2026",
   "reasons": [
     {
-      "rule": "R1",
-      "verdict": "red",
-      "title": "Registration number not found",
-      "message": "02-3457 is not in NAFDAC's registry. A medicine sold in Nigeria must carry a real NAFDAC number.",
-      "evidence": [
-        {
-          "field": "nafdacRegNo",
-          "label": "NAFDAC reg. no.",
-          "onPack": "02-3457",
-          "inRegistry": null,
-          "match": false
-        }
-      ],
-      "source": {
-        "name": "NAFDAC Greenbook (snapshot 25 Oct 2026)",
-        "ref": "02-3457",
-        "url": "https://greenbook.nafdac.gov.ng/",
-        "date": "2026-10-25"
-      },
-      "nextStep": "Check you entered the number exactly as printed. If it is right, don't use the medicine and report it to NAFDAC (0800-162-3322)."
-    },
-    {
       "rule": "R2",
+      "code": "REGULATORY_ALERT",
       "verdict": "red",
       "title": "On NAFDAC Public Alert 042/2026",
       "message": "NAFDAC warned about this batch on 19 Aug 2026 (Coordinated Wholesale Centre (CWC), Kano State): Public Alert No. 042/2026: seizure of suspected substandard and falsified BPPL Artemether/Lumefantrine 80mg/480mg.",
@@ -63,6 +79,29 @@
         "date": "2026-08-19"
       },
       "nextStep": "Don't use it. Keep the pack and report it to NAFDAC (0800-162-3322), quoting alert 042/2026."
+    },
+    {
+      "rule": "R1",
+      "code": "NOT_IN_LOCAL_SNAPSHOT",
+      "verdict": "amber",
+      "title": "Unable to verify registration",
+      "message": "We couldn't find this number in the registration data currently available to MedCheck. This does not establish that the medicine is fake or that its registration never existed. Check the printed number and verify with NAFDAC or a licensed pharmacist before relying on the product.",
+      "evidence": [
+        {
+          "field": "nafdacRegNo",
+          "label": "NAFDAC reg. no.",
+          "onPack": "02-3457",
+          "inRegistry": "No match in current local dataset",
+          "match": null
+        }
+      ],
+      "source": {
+        "name": "NAFDAC Greenbook (snapshot 25 Oct 2026)",
+        "ref": "02-3457",
+        "url": "https://greenbook.nafdac.gov.ng/",
+        "date": "2026-10-25"
+      },
+      "nextStep": "Check the printed number, then verify it with NAFDAC (0800-162-3322) or a licensed pharmacist before relying on the product."
     }
   ],
   "comparison": [
@@ -70,8 +109,8 @@
       "field": "nafdacRegNo",
       "label": "NAFDAC reg. no.",
       "onPack": "02-3457",
-      "inRegistry": null,
-      "match": false
+      "inRegistry": "No match in current local dataset",
+      "match": null
     }
   ],
   "registryRecord": null,
@@ -88,13 +127,16 @@
     }
   ],
   "checked": [
-    "Registration number 02-3457 against 8,943 products in the NAFDAC Greenbook (snapshot 25 Oct 2026)",
-    "Batch BP5203 against 1 human-checked alerts (last NAFDAC alert 19 Aug 2026)",
+    "Registration number 02-3457 against 8,943 products in the NAFDAC Greenbook (snapshot downloaded 25 Oct 2026)",
+    "Batch BP5203 against 1 human-checked alert (last NAFDAC alert 19 Aug 2026)",
     "Registration number against the same alerts",
     "Printed expiry date 09/2027"
   ],
   "notChecked": [],
-  "notes": [],
+  "notes": [
+    "NAFDAC's registry lists \"Artemether & Lumefantrine Tablet\" (80 mg; 480 mg, Tablet) from NEXTPHARMA DRUG COMPANY LTD under a different number, B4-7772 (Active). That is not the number on this pack.",
+    "Current NAFDAC registration status: unavailable. 02-3457 is not in our Greenbook snapshot (downloaded 25 Oct 2026), which only holds registrations expiring on or after 27 Oct 2025; older lapsed or renumbered registrations are missing, so absence here does not mean a number never existed."
+  ],
   "dataAsOf": {
     "registrySnapshot": "2026-10-25",
     "lastAlert": "2026-08-19"

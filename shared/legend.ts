@@ -1,4 +1,4 @@
-import type { LegendEntry, Verdict } from './types';
+import type { DecisionStatus, LegendEntry, Verdict } from './types';
 
 // The verdict legend. Decided by Eric on 2026-10-24. The backend sends the matching entry
 // with every result and serves the whole list at GET /api/legend; the frontend may import it directly.
@@ -16,7 +16,7 @@ export const LEGEND: Record<Verdict, LegendEntry> = {
     verdict: 'red',
     label: 'Do not use',
     headline: 'Do not use this medicine',
-    meaning: 'Not registered, on a NAFDAC alert, or the number belongs to a different product.',
+    meaning: 'On a NAFDAC alert, or the registration number belongs to a different product.',
     nextStep: `Don't take or sell it. Keep the pack, show it to a pharmacist, and report it to NAFDAC (${NAFDAC_PHONE}).`,
     color: '#D32F2F',
     background: '#FDECEA',
@@ -26,7 +26,7 @@ export const LEGEND: Record<Verdict, LegendEntry> = {
     verdict: 'amber',
     label: 'Check before use',
     headline: 'Check before you use this medicine',
-    meaning: 'Registered, but something does not line up: strength, form, registration status or expiry.',
+    meaning: "We couldn't verify the registration, or something does not line up: strength, form, registration status or expiry.",
     nextStep: 'Ask a pharmacist to look at the pack before you use it. Report it to NAFDAC if the details stay wrong.',
     color: '#F59E0B',
     background: '#FEF3C7',
@@ -59,3 +59,25 @@ export const LEGEND: Record<Verdict, LegendEntry> = {
 export const VERDICT_ORDER: Verdict[] = ['red', 'amber', 'unsure', 'green'];
 
 export const LEGEND_LIST: LegendEntry[] = VERDICT_ORDER.map((v) => LEGEND[v]);
+
+// Headline per decision status, so a coverage gap never reads like a counterfeit finding.
+// null = use the colour's own headline (alerts and mismatches keep the strong wording).
+export const STATUS_HEADLINE: Record<DecisionStatus, string | null> = {
+  registry_match_current: null,
+  registry_match_historical: 'Historical registration record found',
+  external_product_match: 'Product listing found, registration unverified',
+  record_mismatch: null,
+  confirmed_regulatory_alert: null,
+  confirmed_inactive_or_cancelled: null,
+  not_found_in_snapshot: 'Unable to verify registration',
+  lookup_unavailable: 'Verification temporarily unavailable',
+  input_uncertain: null,
+};
+
+export const NOT_FOUND_REASON = "We couldn't find this number in the registration data currently available to MedCheck.";
+export const NOT_FOUND_EXPLANATION =
+  'This does not establish that the medicine is fake or that its registration never existed. Check the printed number and verify with NAFDAC or a licensed pharmacist before relying on the product.';
+export const HISTORICAL_EXPLANATION =
+  'We found an earlier official record associated with this medicine. We have not confirmed whether its registration is currently active.';
+export const EXTERNAL_EXPLANATION =
+  "We found a product listing for this number outside NAFDAC's registry. It is not an official registration record, so we have not confirmed the registration or whether it is currently active.";

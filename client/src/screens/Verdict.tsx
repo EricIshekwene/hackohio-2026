@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronRight, Info } from 'lucide-react';
-import type { Finding, VerificationResult } from '@shared/types';
+import type { EvidenceRecord, Finding, VerificationResult } from '@shared/types';
 import { LEGEND } from '@shared/legend';
 import { formatDate } from '@/lib/format';
 import { Button } from '@/components/ui/button';
@@ -59,7 +59,7 @@ function VerdictHeader({ result, productName, compact }: { result: VerificationR
   );
 }
 
-function ReasonRow({ finding, summary }: { finding: Finding; summary: string }) {
+function ReasonRow({ finding, summary, sourceLabel }: { finding: Finding; summary: string; sourceLabel: string }) {
   const l = LEGEND[finding.verdict];
   // A message that only repeats the summary adds nothing.
   const message = finding.message.trim() === summary.trim() ? null : finding.message;
@@ -93,7 +93,7 @@ function ReasonRow({ finding, summary }: { finding: Finding; summary: string }) 
                     {e.onPack ?? '—'}
                   </dd>
                   <dd className="text-foot">
-                    <span className="block text-cap">NAFDAC record</span>
+                    <span className="block text-cap">{finding.source.name.startsWith('NAFDAC') ? 'NAFDAC record' : sourceLabel}</span>
                     {e.inRegistry ?? '—'}
                   </dd>
                 </div>
@@ -111,6 +111,38 @@ function ReasonRow({ finding, summary }: { finding: Finding; summary: string }) 
         </SheetBody>
       </SheetContent>
     </Sheet>
+  );
+}
+
+// One card per source consulted: who published it, what kind of record, when, and what it does not prove.
+function SourceCard({ e }: { e: EvidenceRecord }) {
+  const date = e.sourcePublishedAt ? `Published ${formatDate(e.sourcePublishedAt)}` : e.retrievedAt ? `Retrieved ${formatDate(e.retrievedAt)}` : 'Date unknown';
+  const fields = [e.productName, e.activeIngredients, e.strength, e.dosageForm, e.manufacturer].filter(Boolean).join(' · ');
+  return (
+    <li className="flex flex-col gap-1 rounded-md px-3.5 py-3 shadow-[inset_0_0_0_1px_var(--color-line)]">
+      <span className="flex items-baseline justify-between gap-2">
+        <span className="text-body font-medium">{e.sourceName}</span>
+        <span className="shrink-0 text-cap text-ink-3">{e.official ? 'Official' : 'Not official'}</span>
+      </span>
+      <span className="text-foot text-ink-2">
+        {e.recordType} · {date}
+      </span>
+      <span className="text-foot">
+        {e.found ? (e.registrationNumber ? `Record found for ${e.registrationNumber}` : 'Match found') : 'No matching record'}
+        {fields && <span className="block text-ink-2">{fields}</span>}
+      </span>
+      {(e.found || e.sourceType === 'nafdac_greenbook') && (
+        <span className="text-foot text-ink-2">Registration status: {e.registrationStatus === 'unknown' ? 'not established by this source' : e.registrationStatus}</span>
+      )}
+      {e.evidenceLimitations.map((l) => (
+        <span key={l} className="text-cap text-ink-3">{l}</span>
+      ))}
+      {e.sourceUrl && (
+        <a href={e.sourceUrl} target="_blank" rel="noreferrer" className="text-cap text-ink underline decoration-ink/25 underline-offset-4">
+          Open source
+        </a>
+      )}
+    </li>
   );
 }
 
@@ -145,6 +177,8 @@ export function VerdictScreen({
   onEdit: () => void;
 }) {
   const v = result.verdict;
+  // Couldn't verify the number: the useful next move is to re-check what was typed.
+  const recheck = result.status === 'not_found_in_snapshot' || result.status === 'input_uncertain';
   const differ = result.comparison.filter((r) => r.match === false).length;
   const [tab, setTab] = useState('compare');
 
@@ -158,10 +192,10 @@ export function VerdictScreen({
           Something looks off? Report it
         </Button>
       </>
-    ) : v === 'unsure' ? (
+    ) : v === 'unsure' || recheck ? (
       <>
         <Button block onClick={onEdit}>
-          Add the NAFDAC number
+          {result.registrationNumber ? 'Check the number again' : 'Add the NAFDAC number'}
         </Button>
         <Button block variant="ghost" className="h-10" onClick={onReport}>
           Report to NAFDAC
@@ -214,7 +248,7 @@ export function VerdictScreen({
         </TabsList>
 
         <TabsContent value="compare" className="-mx-1 flex min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain px-1 pb-1">
-          <ComparisonTable rows={result.comparison} legendRed={LEGEND.red} />
+          <ComparisonTable rows={result.comparison} legendRed={LEGEND.red} sourceLabel={result.comparisonSource} />
           {result.alertMatches.map((a) => (
             <AlertRow key={a.alertNo} alert={a} />
           ))}
@@ -229,12 +263,21 @@ export function VerdictScreen({
         <TabsContent value="why" className="min-h-0 overflow-y-auto overscroll-contain">
           <div className="overflow-hidden rounded-lg border border-line">
             {result.reasons.map((f) => (
-              <ReasonRow key={f.rule + f.title} finding={f} summary={result.summary} />
+              <ReasonRow key={f.rule + f.title} finding={f} summary={result.summary} sourceLabel={result.comparisonSource} />
             ))}
           </div>
         </TabsContent>
 
         <TabsContent value="checked" className="flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain">
+          <section className="flex flex-col gap-2">
+            <h2 className="text-body font-semibold">Sources</h2>
+            <ul className="flex flex-col gap-2">
+              {result.evidence.map((e) => (
+                <SourceCard key={e.sourceName + e.recordType} e={e} />
+              ))}
+            </ul>
+            <p className="text-cap text-ink-3">Authenticity: not verified. A records check can't test what's inside the pack.</p>
+          </section>
           <section className="flex flex-col gap-2">
             <h2 className="text-body font-semibold">What we checked</h2>
             <Lines items={result.checked} mark="✓" />

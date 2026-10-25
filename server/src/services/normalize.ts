@@ -2,12 +2,17 @@
 
 // NAFDAC reg nos look like A4-6238, 04-1234, B4-0123, A11-0123.
 // Returns the display form (with hyphen) or null if nothing usable is left.
-export function normalizeRegNo(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  let s = raw.toUpperCase();
+// Before any O->0 repair: labels stripped, separators unified (Unicode dashes, minus, no-break spaces).
+function cleanRegNo(raw: string): string {
+  let s = raw.normalize('NFKC').toUpperCase();
   // Labels only as whole words, so a misread inside the number ("A4-NO12") isn't silently cut out.
   s = s.replace(/\b(NAFDAC|REG(ISTRATION)?(NO)?|NO|NUMBER)\b\.?|[:#]/g, ' ');
-  s = s.replace(/[‐-―_.\/\\ ]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  return s.replace(/[‐-―−﹣－_.\/\\\s]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+}
+
+export function normalizeRegNo(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  let s = cleanRegNo(raw);
   // "N/A", "none", "NA": every NAFDAC number has digits, so text without any isn't a number.
   if (!/\d/.test(s)) return null;
   // O<->0: a letter O is only ever a misread zero, except where a letter is legal (first char).
@@ -20,6 +25,15 @@ export function normalizeRegNo(raw: string | null | undefined): string | null {
   // Missing hyphen: "A46238" -> "A4-6238"
   if (!s.includes('-') && /^[A-Z0-9]{2,3}\d{4}$/.test(s)) s = `${s.slice(0, -4)}-${s.slice(-4)}`;
   return s;
+}
+
+// True when normalising changed a letter O into a zero. The lookup uses the repaired number, but the
+// result must say so: the user confirms the number, we don't silently substitute it.
+export function regNoWasCorrected(raw: string | null | undefined): boolean {
+  if (!raw) return false;
+  const before = cleanRegNo(raw);
+  const after = normalizeRegNo(raw);
+  return !!after && before.replace(/-/g, '') !== after.replace(/-/g, '');
 }
 
 // Key for lookups: hyphen-insensitive.

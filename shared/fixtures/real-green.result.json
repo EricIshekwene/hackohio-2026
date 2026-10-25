@@ -1,4 +1,47 @@
 {
+  "status": "registry_match_current",
+  "severity": "none",
+  "registrationNumber": "A4-6238",
+  "productName": "Artheget EZ",
+  "currentRegistrationStatus": "active",
+  "authenticityVerified": false,
+  "evidence": [
+    {
+      "sourceType": "nafdac_greenbook",
+      "sourceName": "NAFDAC Greenbook",
+      "recordType": "Registry snapshot",
+      "official": true,
+      "found": true,
+      "sourceUrl": "https://greenbook.nafdac.gov.ng/",
+      "retrievedAt": "2026-10-25",
+      "registrationNumber": "A4-6238",
+      "productName": "Artheget EZ",
+      "activeIngredients": "Artemether; Lumefantrine",
+      "strength": "80 mg; 480 mg",
+      "dosageForm": "Tablet",
+      "manufacturer": "Getz Pharma Nigeria Limited",
+      "registrationStatus": "Active, registration expires 1 Dec 2026",
+      "registrationStatusVerifiedAt": "2026-10-25",
+      "evidenceLimitations": [
+        "A snapshot of what Greenbook listed on the download date, not a live lookup.",
+        "Greenbook only returned registrations expiring on or after 27 Oct 2025; older lapsed or renumbered registrations are missing, so absence here does not mean a number never existed."
+      ]
+    },
+    {
+      "sourceType": "nafdac_alert",
+      "sourceName": "NAFDAC and WHO alerts",
+      "recordType": "1 human-checked alert",
+      "official": true,
+      "found": false,
+      "sourcePublishedAt": "2026-08-19",
+      "registrationNumber": null,
+      "registrationStatus": "unknown",
+      "evidenceLimitations": [
+        "Only alerts a person has checked and entered; newer alerts may be missing."
+      ]
+    }
+  ],
+  "comparisonSource": "NAFDAC record",
   "verdict": "green",
   "legend": {
     "verdict": "green",
@@ -15,6 +58,7 @@
   "reasons": [
     {
       "rule": "R5",
+      "code": "REGISTRY_MATCH_CURRENT",
       "verdict": "green",
       "title": "Registered, no active alert, details consistent",
       "message": "Registered, no active alert, details consistent. Not proof of authenticity.",
@@ -101,8 +145,8 @@
   },
   "alertMatches": [],
   "checked": [
-    "Registration number A4-6238 against 8,943 products in the NAFDAC Greenbook (snapshot 25 Oct 2026)",
-    "Batch AG1042 against 1 human-checked alerts (last NAFDAC alert 19 Aug 2026)",
+    "Registration number A4-6238 against 8,943 products in the NAFDAC Greenbook (snapshot downloaded 25 Oct 2026)",
+    "Batch AG1042 against 1 human-checked alert (last NAFDAC alert 19 Aug 2026)",
     "Registration number against the same alerts",
     "product name, strength, manufacturer / licence holder against NAFDAC's record for A4-6238",
     "Registration status and registration expiry",

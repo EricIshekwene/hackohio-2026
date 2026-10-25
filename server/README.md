@@ -37,8 +37,8 @@ Types live in `shared/types.ts`, the legend in `shared/legend.ts`.
 
 | Rule | When | Colour |
 |---|---|---|
-| R1 | Reg no. not in the registry | RED |
-| R2 | Batch or reg no. on a human-checked alert | RED (AMBER if only product + manufacturer match and the pack has no batch) |
+| R1 | Reg no. not in our Greenbook snapshot. Never RED: the snapshot is not exhaustive. Headline is "Unable to verify registration", or "Historical registration record found" / "Product listing found, registration unverified" when `data/references.json` has a record | AMBER |
+| R2 | Batch or reg no. on a human-checked alert, and neither the product name nor the company contradicts the alert. A reg no. alone counts only if the number isn't in the registry | RED (AMBER if one detail differs, or only product + manufacturer match and the pack has no batch; no hit if name and company both differ) |
 | R3 | Reg no. exists, but product name or active ingredient differs (or the licence holder differs too) | RED |
 | R3 | Only the manufacturer differs and the pack names no "marketed by" holder (NAFDAC lists the Nigerian holder, not the factory) | AMBER |
 | R3 | Reg no. exists, only strength or dosage form differs | AMBER |
@@ -46,7 +46,11 @@ Types live in `shared/types.ts`, the legend in `shared/legend.ts`.
 | R4 | Registration status not Active, or registration expired | AMBER |
 | R6 | Pack's printed expiry has passed | AMBER |
 | U1 | No reg no. on the pack | UNSURE |
+| U2 | Reg no. had a letter O read as zero and still has no match: "Check the registration number" | UNSURE |
+| U3 | Registry file could not be loaded: "Verification temporarily unavailable" | UNSURE |
 | R5 | Nothing above fired | GREEN + "Not proof of authenticity" |
+
+Every result also carries a machine-readable `status` (`registry_match_current`, `registry_match_historical`, `external_product_match`, `record_mismatch`, `confirmed_regulatory_alert`, `confirmed_inactive_or_cancelled`, `not_found_in_snapshot`, `lookup_unavailable`, `input_uncertain`), a `severity`, a `code` on every reason, `authenticityVerified: false`, and `evidence`: every source consulted, found or not, with its date and limitations. Precedence: alert > mismatch > inactive > current match > the rest; a listing never overrides an alert or a mismatch. Dates printed on a pack or registration are valid through the end of that day.
 
 Registration expiring within 60 days adds a note but doesn't change the colour. Missing batch or expiry adds a "not checked" line.
 
@@ -54,4 +58,5 @@ Registration expiring within 60 days adds a note but doesn't change the colour. 
 
 - `data/seed-registry.json`: the one verified record (A4-6238) so everything runs before the snapshot.
 - `data/registry.json`: the full Greenbook snapshot. Create it **once**, from a laptop, with `npm run snapshot:registry` (18 polite requests). Never call Greenbook from the browser or during the demo.
+- `data/references.json`: non-Greenbook evidence with provenance (official historical NAFDAC documents, GS1 Nigeria, manufacturer catalogues). Only consulted when the number has no Greenbook row; never merged into the registry and never given a current status. Add a row only after reading the source. Coverage note: Greenbook only returns registrations expiring on or after about a year before the download date (27 Oct 2025 in the 24 Oct 2026 snapshot), so older lapsed or renumbered registrations (e.g. B4-0910, Aquamal QS tablets) are missing.
 - `data/alerts.json`: human-checked alerts only (Alert 042/2026 is in). `npm run fetch:alerts` writes candidates to `data/raw/` for a person to check and copy across.

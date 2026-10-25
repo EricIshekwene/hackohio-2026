@@ -4,7 +4,7 @@ import packs from '../../shared/fixtures/demo-packs.json';
 import type { StandardizedMedicationInput } from '../../shared/types';
 import { createApp } from '../src/app';
 import { loadDataset } from '../src/services/data';
-import { normalizeRegNo, strengthNumbers } from '../src/services/normalize';
+import { normalizeBatch, normalizeRegNo, strengthNumbers } from '../src/services/normalize';
 import { parsePackDate } from '../src/services/dates';
 import { checkMedication } from '../src/services/rules';
 
@@ -163,11 +163,73 @@ describe('licence holder vs factory (R3) and real inactive registrations (R4)', 
   });
 });
 
+describe('near-miss spellings (R3 AMBER, never a silent match)', () => {
+  const spelling = (r: ReturnType<typeof check>) => r.reasons.find((f) => f.title === "Spelling differs from NAFDAC's record");
+  it.each(['Artheqet EZ', 'Arthegat EZ', 'Artheqet'])('"%s" on A4-6238 is AMBER, not green', (name) => {
+    const p = pack('real-green');
+    p.fields.productName.value = name;
+    const r = check(p);
+    expect(r.verdict).toBe('amber');
+    expect(spelling(r)).toMatchObject({ rule: 'R3', verdict: 'amber' });
+    expect(r.comparison.find((c) => c.field === 'productName')?.match).toBe(false);
+  });
+  it.each(['Artheget', 'ARTHEGET EZ', 'Artheget-EZ'])('"%s" is the same brand: no spelling finding', (name) => {
+    const p = pack('real-green');
+    p.fields.productName.value = name;
+    const r = check(p);
+    expect(spelling(r)).toBeUndefined();
+    expect(r.verdict).toBe('green');
+  });
+  (ds.registry.isSeed ? it.skip : it)('a near-miss holder ("Novartls" for "Novartis") is flagged AMBER, not RED', () => {
+    const input: StandardizedMedicationInput = {
+      source: 'manual',
+      confirmedByUser: true,
+      fields: {
+        productName: { value: 'Coartem 80/480', editedByUser: false },
+        strength: { value: '80mg/480mg', editedByUser: false },
+        nafdacRegNo: { value: 'B4-0262', editedByUser: false },
+        manufacturer: { value: 'Novartis Pharma AG, Basel, Switzerland', editedByUser: false },
+        marketedBy: { value: 'Novartls Nigeria Limited', editedByUser: false },
+        batchNo: { value: 'KN1234', editedByUser: false },
+        expiryDate: { value: '2027-01', editedByUser: false },
+      },
+    };
+    const r = check(input);
+    expect(spelling(r)?.evidence.map((e) => e.field)).toContain('manufacturer');
+    expect(r.verdict).toBe('amber'); // R4 (inactive) + spelling, but no RED from the holder rule
+  });
+  it('a short company word that differs is a plain mismatch, not a near-miss', () => {
+    const p = pack('real-green');
+    p.fields.manufacturer.value = 'Getx Pharma Nigeria Limited';
+    const r = check(p);
+    expect(spelling(r)).toBeUndefined();
+    expect(r.verdict).toBe('amber');
+  });
+  it('the hero (different product) is still RED', () => expect(check(pack('hero-cloned')).verdict).toBe('red'));
+});
+
 describe('normalisation', () => {
   it.each([
     ['A4-6238', 'A4-6238'], ['a4 6238', 'A4-6238'], ['A46238', 'A4-6238'], ['A4–6238', 'A4-6238'],
     ['A4-62O8', 'A4-6208'], ['O2-3457', '02-3457'], ['NAFDAC Reg. No: 02-3457', '02-3457'],
+    ['NAFDAC REG NO. A4 6238', 'A4-6238'], ['RegNo: 04-9927', '04-9927'], ['No.04-1234', '04-1234'],
   ])('%s -> %s', (raw, want) => expect(normalizeRegNo(raw)).toBe(want));
+
+  it('does not cut "NO" out of the middle of a number', () => expect(normalizeRegNo('A4-NO12')).not.toBe('A4-12'));
+
+  it.each([
+    ['B.No: BP5203', 'BP5203'], ['B/N BP5203', 'BP5203'], ['Batch No. BP5203', 'BP5203'], ['Lot No. GL2210', 'GL2210'],
+    ['bp 5203', 'BP5203'], ['NO5012', 'NO5012'], ['LOT NO1234', 'NO1234'],
+  ])('batch %s -> %s', (raw, want) => expect(normalizeBatch(raw)).toBe(want));
+
+  it('a typed "B.No: BP5203" still hits Alert 042 (RED)', () => {
+    const p = pack('alert-042');
+    p.fields.batchNo.value = 'B.No: BP5203';
+    p.fields.nafdacRegNo.value = null; // only the batch can find the alert now
+    const r = check(p);
+    expect(r.verdict).toBe('red');
+    expect(r.reasons.find((f) => f.rule === 'R2')?.verdict).toBe('red');
+  });
 
   it('reads strengths', () => {
     expect(strengthNumbers('80 mg; 480 mg')).toEqual([80, 480]);

@@ -42,6 +42,7 @@ Types live in `shared/types.ts`, the legend in `shared/legend.ts`.
 | R3 | Reg no. exists, but product name or active ingredient differs (or the licence holder differs too) | RED |
 | R3 | Only the manufacturer differs and the pack names no "marketed by" holder (NAFDAC lists the Nigerian holder, not the factory) | AMBER |
 | R3 | Reg no. exists, only strength or dosage form differs | AMBER |
+| R3 | Product or company name matches only fuzzily (1–2 letters off, e.g. "Artheqet" vs "Artheget"): "Spelling differs from NAFDAC's record" | AMBER |
 | R4 | Registration status not Active, or registration expired | AMBER |
 | R6 | Pack's printed expiry has passed | AMBER |
 | U1 | No reg no. on the pack | UNSURE |

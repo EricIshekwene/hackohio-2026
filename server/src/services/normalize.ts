@@ -5,7 +5,8 @@
 export function normalizeRegNo(raw: string | null | undefined): string | null {
   if (!raw) return null;
   let s = raw.toUpperCase();
-  s = s.replace(/NAFDAC|REG(ISTRATION)?\.?|NO\.?|NUMBER|[:#]/g, ' ');
+  // Labels only as whole words, so a misread inside the number ("A4-NO12") isn't silently cut out.
+  s = s.replace(/\b(NAFDAC|REG(ISTRATION)?(NO)?|NO|NUMBER)\b\.?|[:#]/g, ' ');
   s = s.replace(/[‐-―_.\/\\ ]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
   if (!s) return null;
   // O<->0: a letter O is only ever a misread zero, except where a letter is legal (first char).
@@ -28,7 +29,13 @@ export function regNoKey(raw: string | null | undefined): string | null {
 
 export function normalizeBatch(raw: string | null | undefined): string | null {
   if (!raw) return null;
-  const s = raw.toUpperCase().replace(/BATCH|LOT|NO\.?|[:#\s\-_.]/g, '');
+  // Strip a printed label only at the start ("B.No:", "B/N", "Batch No.", "Lot"), never inside the batch:
+  // "B.No: BP5203" -> BP5203, but a batch that really is "NO5012" stays NO5012.
+  const s = raw
+    .toUpperCase()
+    .trim()
+    .replace(/^(B\.?\s*NO|B\/N|BN|BATCH\s*(NO|NUMBER)?|LOT\s*(NO|NUMBER)?)\b\.?\s*[:#]?\s*/, '')
+    .replace(/[:#\s\-_.]/g, '');
   return s || null;
 }
 

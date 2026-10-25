@@ -2,7 +2,7 @@
 // Reuses the backend's normalisers where they exist so both layers clean values the same way.
 import type { ExtractedField, StandardizedMedicationInput } from '../../../shared/types';
 import { parsePackDate } from '../services/dates';
-import { nameTokens, normalizeRegNo, normalizeText, strengthNumbers } from '../services/normalize';
+import { nameTokens, normalizeBatch, normalizeRegNo, normalizeText, strengthNumbers } from '../services/normalize';
 import { EXTRACT_KEYS, type ExtractKey, type RawExtraction } from './claude';
 
 const REQUIRED: ExtractKey[] = ['productName', 'strength', 'nafdacRegNo', 'manufacturer', 'batchNo', 'expiryDate'];
@@ -76,11 +76,9 @@ function strength(raw: string): Cleaned {
 
 function batchNo(raw: string): Cleaned {
   const { text, swapped } = base(raw);
-  const value = text
-    .toUpperCase()
-    .replace(/^(B\.?\s*NO|BATCH\s*(NO|NUMBER)?|LOT\s*(NO|NUMBER)?|B\/N|BN)\.?\s*[:#]?\s*/, '')
-    .replace(/\s+/g, '');
-  return { value: value || null, formatOk: !!value, changedChars: swapped, notes: [] };
+  // Same cleaner the rules engine uses for pack and alert batches, so both layers agree.
+  const value = normalizeBatch(text);
+  return { value, formatOk: !!value, changedChars: swapped, notes: [] };
 }
 
 function expiryDate(raw: string): Cleaned {

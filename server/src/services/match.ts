@@ -18,6 +18,25 @@ export function productNameMatches(onPack: string | null, inRegistry: string | n
   return tokenMatch(a[0], b[0]) || a.some((t) => t.length >= 5 && b.includes(t));
 }
 
+// A fuzzy "match" that only passed on similarity: no brand word is spelled the same. On a medicine pack a
+// one-letter brand misspelling ("Artheqet" for "Artheget") is a classic sign of a fake, so callers must not
+// treat it as consistent. "Artheget" vs "Artheget EZ" is NOT a near miss (the brand word is identical).
+export function productNameNearMiss(onPack: string | null, inRegistry: string | null): boolean {
+  if (productNameMatches(onPack, inRegistry) !== true) return false;
+  if (normalizeText(onPack) === normalizeText(inRegistry)) return false;
+  const a = nameTokens(onPack);
+  const b = nameTokens(inRegistry);
+  return a[0] !== b[0] && !a.some((t) => t.length >= 5 && b.includes(t));
+}
+
+// Same for companies: matched only because a word was close ("Getz" vs "Gelz Pharma"), never identical.
+export function manufacturerNearMiss(onPack: string | null, inRegistry: string | null): boolean {
+  if (manufacturerMatches(onPack, inRegistry) !== true) return false;
+  const a = companyTokens(onPack);
+  const b = companyTokens(inRegistry);
+  return !a.some((t) => b.includes(t));
+}
+
 // Manufacturer: share at least one meaningful word after dropping "Ltd", "Pharma", "Nigeria"...
 export function manufacturerMatches(onPack: string | null, inRegistry: string | null): boolean | null {
   if (!onPack || !inRegistry) return null;

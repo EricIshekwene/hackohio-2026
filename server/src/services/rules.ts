@@ -7,7 +7,8 @@ import { CAVEAT, GREEN_SUMMARY, LEGEND, NAFDAC_PHONE, VERDICT_ORDER } from '../.
 import type { Alert, Dataset } from './data';
 import { daysBetween, formatDate, parseIsoDate, parsePackDate } from './dates';
 import {
-  formMatches, ingredientMatches, manufacturerMatches, productNameMatches, strengthMatches,
+  formMatches, ingredientMatches, manufacturerMatches, manufacturerNearMiss, productNameMatches,
+  productNameNearMiss, strengthMatches,
 } from './match';
 import { normalizeBatch, normalizeRegNo, regNoKey } from './normalize';
 
@@ -61,8 +62,18 @@ function holderRow(input: StandardizedMedicationInput, rec: RegistryRecord): Com
   const onPack = [made, marketed && `marketed by ${marketed}`].filter(Boolean).join(', ') || null;
   // When the pack names a holder, that is what NAFDAC registered: judge it alone, so a real
   // factory name can't vouch for a fake "marketed by" company.
-  const match = marketed ? manufacturerMatches(marketed, rec.applicant) : manufacturerMatches(made, rec.applicant);
+  const judged = marketed ?? made;
+  const match = manufacturerMatches(judged, rec.applicant);
   return row('manufacturer', onPack, rec.applicant, match);
+}
+
+// Fields whose match was fuzzy only (a near-miss spelling). They show as mismatches in the table but get
+// their own AMBER finding instead of feeding the RED/AMBER R3 split.
+function nearMisses(input: StandardizedMedicationInput, rec: RegistryRecord): Set<FieldKey> {
+  const out = new Set<FieldKey>();
+  if (productNameNearMiss(val(input, 'productName'), rec.productName)) out.add('productName');
+  if (manufacturerNearMiss(val(input, 'marketedBy') ?? val(input, 'manufacturer'), rec.applicant)) out.add('manufacturer');
+  return out;
 }
 
 function compare(input: StandardizedMedicationInput, rec: RegistryRecord | null): ComparisonRow[] {
@@ -84,7 +95,8 @@ function compare(input: StandardizedMedicationInput, rec: RegistryRecord | null)
     rows.push(row(key, onPack, regValue ?? null, fn(onPack, regValue ?? null)));
   }
   rows.push(holderRow(input, rec));
-  return rows;
+  const near = nearMisses(input, rec);
+  return rows.map((r) => (near.has(r.field) ? { ...r, match: false } : r));
 }
 
 function greenbookSource(ds: Dataset, regNo?: string) {
@@ -202,7 +214,9 @@ export function checkMedication(
 
   if (rec) {
     // ---- R3: number exists but the details belong to another product
-    const mismatches = comparison.filter((r) => r.match === false && r.field !== 'nafdacRegNo');
+    const near = nearMisses(input, rec);
+    const nearRows = comparison.filter((r) => near.has(r.field));
+    const mismatches = comparison.filter((r) => r.match === false && r.field !== 'nafdacRegNo' && !near.has(r.field));
     const holderBad = mismatches.find((r) => r.field === 'manufacturer');
     const nameBad = mismatches.some((r) => R3_RED_FIELDS.includes(r.field));
     const holderIsRed = !!holderBad && (nameBad || !!val(input, 'marketedBy'));
@@ -229,6 +243,17 @@ export function checkMedication(
         nextStep: amberRows.some((r) => r.field === 'manufacturer')
           ? `Look for "Marketed by" or "Imported by" on the pack and add it, or ask a pharmacist.`
           : 'Ask a pharmacist to compare the pack with what was prescribed before using it.',
+      });
+    }
+    if (nearRows.length) {
+      findings.push({
+        rule: 'R3',
+        verdict: 'amber',
+        title: "Spelling differs from NAFDAC's record",
+        message: `${nearRows.map((r) => `The pack's ${r.label.toLowerCase()} "${r.onPack}" is close to, but not the same as, NAFDAC's "${r.inRegistry}"`).join('. ')}. A slightly misspelled brand or company name is a common sign of a fake pack.`,
+        evidence: [row('nafdacRegNo', regNo, rec.regNo, true), ...nearRows],
+        source: greenbookSource(ds, rec.regNo),
+        nextStep: 'Compare the spelling on the pack letter by letter. If it really differs, ask a pharmacist before using it.',
       });
     }
     checked.push(`${comparison.filter((r) => r.match !== null && r.field !== 'nafdacRegNo').map((r) => r.label.toLowerCase()).join(', ')} against NAFDAC's record for ${rec.regNo}`);

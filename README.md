@@ -9,7 +9,7 @@ Falsified medicines are a daily risk in Nigeria, and a common trick is printing 
 - **Never says "genuine".** Four tiers: *Do not use* (red), *Check before use* (amber), *We couldn't check this* (unsure), *No problems found* (green, always with "Not proof of authenticity").
 - **Reporting built in.** A drafted email or call to NAFDAC's pharmacovigilance line, which the user reviews and sends themselves.
 
-Live demo (mock data, runs in the browser): https://claude.ai/artifact/G3B3z7PSve7DLFKuVQTXHx
+**Try it: https://ericishekwene.github.io/hackohio-2026/** (demo mode, runs entirely in the browser). Tap a demo pack, or scan any pack with your camera: in demo mode the photo always "reads" as the cloned-number demo pack, and every verdict is the real rules engine's recorded output for the three demo packs. Deployed from `main` by `.github/workflows/pages-demo.yml`.
 
 **Research, planning and process:** [docs/](docs/README.md) covers how we chose the problem, the user flows, the verdict rules, the design, the pivots, and how we used and validated AI.
 

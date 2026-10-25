@@ -1,0 +1,58 @@
+name: Deploy demo to GitHub Pages
+
+# Public click-through demo for judges: the client in mock mode (VITE_USE_MOCKS=true), so every answer
+# comes from shared/fixtures and no server, key or real data is needed.
+# https://ericishekwene.github.io/hackohio-2026/
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - client/**
+      - shared/**
+      - server/src/services/report.ts
+      - server/src/services/dates.ts
+      - .github/workflows/pages-demo.yml
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+        working-directory: client
+      # Relative base so the app works under /hackohio-2026/; the app has no URL routes, so no 404 fallback is needed.
+      - run: npx tsc --noEmit && npx vite build --base ./
+        working-directory: client
+        env:
+          VITE_USE_MOCKS: 'true'
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: client/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
